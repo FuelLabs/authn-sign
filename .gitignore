@@ -1,3 +1,9 @@
+# Bun
+build
+old
+example/authn-sign.js
+example/.gitignore
+
 # Logs
 logs
 *.log
