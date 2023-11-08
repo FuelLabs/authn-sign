@@ -1,6 +1,11 @@
 {
   "name": "authn-sign",
-  "version": "0.0.2",
+  "version": "0.0.3",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:FuelLabs/authn-sign.git"
+  },
+  "homepage": "https://authn-sign.vercel.app",
   "description": "authn-sign - a simplified browser interface for WebAuthn focused on secp256r1 (P-256) and SHA-256.",
   "author": "Fuel Labs Inc. <contact@fuel.sh> (https://fuel.network/)",
   "module": "src/index.js",
