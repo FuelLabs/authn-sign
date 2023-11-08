@@ -16,6 +16,16 @@ A note that WebAuthn local testing requires HTTPS and a `localhost` non IP addre
 npm install --save authn-sign
 ```
 
+### CDN
+```
+<script src="https://unpkg.com/authn-sign@latest/umd/authn-sign.min.js"></script>
+```
+
+### As a Module
+```
+import authn from "https://unpkg.com/authn-sign@latest/umd/authn-sign.min.js";
+```
+
 ## Build
 ```sh
 # Install Bun.js - https://bun.sh
@@ -146,7 +156,7 @@ utils; // See source.
 ```
 MIT License
 
-Copyright (c) 2023 Fuel Labs
+Copyright (c) 2023 Fuel Labs Inc.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

@@ -1,12 +1,17 @@
 {
   "name": "authn-sign",
+  "version": "0.0.2",
+  "description": "authn-sign - a simplified browser interface for WebAuthn focused on secp256r1 (P-256) and SHA-256.",
+  "author": "Fuel Labs Inc. <contact@fuel.sh> (https://fuel.network/)",
   "module": "src/index.js",
   "type": "module",
   "scripts": {
     "copy_to_example": "cp build/authn-sign.js example/authn-sign.js",
     "build:min": "bun build ./src/index.js --outdir ./build/ --entry-naming [dir]/authn-sign.min.[ext] --target browser --minify --sourcemap=external",
     "build:unminified": "bun build ./src/index.js --outdir ./build/ --entry-naming [dir]/authn-sign.[ext] --target browser --sourcemap=external",
-    "build": "bun run build:min && bun run build:unminified && bun run copy_to_example"
+    "build": "bun run build:min && bun run build:unminified && bun run copy_to_example",
+    "prepublishOnly": "bun run build && cp -rf build umd",
+    "postpublish": "rm -rf umd"
   },
   "devDependencies": {
     "bun-types": "latest",
