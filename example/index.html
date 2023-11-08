@@ -12,11 +12,17 @@
     // Register your account.
     const account = await register('username_1');
 
+    // Write to result.
+    document.querySelector('#result').innerHTML += "<h3>Account:</h3> <pre><code>" + JSON.stringify(account, null, 2) + '</pre></code>';
+
     // Some transaction hash.
     const transaction_hash = '0xb4f62ae3e337421868782a88ff7d81a8bf44ef6722dfcd0c70d08a0adc25663d';
 
     // Sign the transaction hash.
     const signature = await sign(account, transaction_hash);
+
+    // Write to result.
+    document.querySelector('#result').innerHTML += "<h3>Signature:</h3> <pre><code>" + JSON.stringify(signature, null, 2) + '</pre></code>';
 
     // This would happen on chain.
     const signedData = signature.clientData.preChallenge
@@ -33,9 +39,12 @@
       signature: signature.signature,
     });
 
-    // Should be true!
-    console.log(is_verified);
+    // Write to result.
+    document.querySelector('#result').innerHTML += "<h3>Verified as " + (is_verified ? 'true' : 'false') + "</h2>";
   </script>
+  <div id="result">
+
+  </div>
 </body>
 
 </html>
