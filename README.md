@@ -34,6 +34,11 @@ import authn from "https://unpkg.com/authn-sign@latest/umd/authn-sign.min.js";
 bun run build
 ```
 
+## Test
+```
+bun run test
+```
+
 Output is set to `./build`.
 
 ## Example
