@@ -96,7 +96,9 @@ function clientDataToJSON(clientData) {
 // Register a P256 account using WebAuthn.
 async function register(username = "", opts = {}) {
     // Register result.
-    const register_result = await client.register(username, opts.challenge || 'random-challenge-base64-encoded', {
+    const register_result = await (opts.client || client).register(
+        username,
+        opts.challenge || 'random-challenge-base64-encoded', {
         authenticatorType: "auto",
         userVerification: "required",
         timeout: 60000,
@@ -119,7 +121,7 @@ async function register(username = "", opts = {}) {
 // Sign / authenticate a message with P256 using WebAuthn.
 async function sign(account = {}, challenge = "0x", opts = {}) {
     // Result from authentication.
-    const authenticate_result = await client.authenticate([
+    const authenticate_result = await (opts.client || client).authenticate([
         hexToBase64(account.credentialId).slice(0, -1), // remove =
     ], utils.toBase64url(parseHexString(challenge)), opts);
 
@@ -151,7 +153,9 @@ async function verify(signature_object = {}) {
     // Parse and check hex data.
     const message = parseHexString(signature_object.message);
     const signature = parseHexString(signature_object.signature);
-    const publicKey = parseHexString(signature_object.publicKey);
+    const publicKey = parseHexString(signature_object.account 
+        ? signature_object.account.publicKey
+        : signature_object.publicKey);
 
     // Produce crypto key object.
     const crypto_key = await crypto.subtle.importKey('raw', publicKey, {
