@@ -33,13 +33,12 @@ import authn from "https://unpkg.com/authn-sign@latest/umd/authn-sign.min.js";
 # Install Bun.js - https://bun.sh
 bun run build
 ```
+Output is set to `./build/[name].[ext]`.
 
 ## Test
 ```
 bun run test
 ```
-
-Output is set to `./build`.
 
 ## Example
 ```js
