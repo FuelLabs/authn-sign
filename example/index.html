@@ -5,42 +5,46 @@
 </head>
 
 <body>
+  <script type="module" src="./authn-sign.js"></script>
   <script type="module">
-    import authn from './authn-sign.js';
-    const { register, sign, verify, utils } = authn;
+    const authn = window.authn;
+    const utils = authn.utils;
 
-    // Register your account.
-    const account = await register('username_1');
+    (async () => {
+      // Register your account.
+      const account = await authn.register('username_1');
 
-    // Write to result.
-    document.querySelector('#result').innerHTML += "<h3>Account:</h3> <pre><code>" + JSON.stringify(account, null, 2) + '</pre></code>';
+      // Write to result.
+      document.querySelector('#result').innerHTML += "<h3>Account:</h3> <pre><code>" + JSON.stringify(account, null, 2) + '</pre></code>';
 
-    // Some transaction hash.
-    const transaction_hash = '0xb4f62ae3e337421868782a88ff7d81a8bf44ef6722dfcd0c70d08a0adc25663d';
+      // Some transaction hash.
+      const transaction_hash = '0xb4f62ae3e337421868782a88ff7d81a8bf44ef6722dfcd0c70d08a0adc25663d';
 
-    // Sign the transaction hash.
-    const signature = await sign(account, transaction_hash);
+      // Sign the transaction hash.
+      const signature = await authn.sign(account, transaction_hash);
 
-    // Write to result.
-    document.querySelector('#result').innerHTML += "<h3>Signature:</h3> <pre><code>" + JSON.stringify(signature, null, 2) + '</pre></code>';
+      // Write to result.
+      document.querySelector('#result').innerHTML += "<h3>Signature:</h3> <pre><code>" + JSON.stringify(signature, null, 2) + '</pre></code>';
 
-    // This would happen on chain.
-    const signedData = signature.clientData.preChallenge
-      + utils.hexToBase64(transaction_hash).slice(0, -1)
-      + signature.clientData.postChallenge;
-    const clientDataHash = utils.bufferToHex(await utils.sha256(utils.toBuffer(signedData)));
-    const message = utils.concatHexStrings(signature.authenticatorData, clientDataHash);
-    // const messageHash = utils.bufferToHex(await utils.sha256(message));
+      // This would happen on chain.
+      const signedData = signature.clientData.preChallenge
+        + utils.hexToBase64(transaction_hash).slice(0, -1)
+        + signature.clientData.postChallenge;
+      const clientDataHash = utils.bufferToHex(await utils.sha256(utils.toBuffer(signedData)));
+      const message = utils.concatHexStrings(signature.authenticatorData, clientDataHash);
+      // const messageHash = utils.bufferToHex(await utils.sha256(message));
 
-    // This P-256 verficiation would also happen on chain.
-    const is_verified = await verify({
-      publicKey: account.publicKey,
-      message: utils.bufferToHex(message),
-      signature: signature.signature,
-    });
+      // This P-256 verficiation would also happen on chain.
+      const is_verified = await authn.verify({
+        publicKey: account.publicKey,
+        message: utils.bufferToHex(message),
+        signature: signature.signature,
+      });
 
-    // Write to result.
-    document.querySelector('#result').innerHTML += "<h3>Verified as " + (is_verified ? 'true' : 'false') + "</h2>";
+      // Write to result.
+      document.querySelector('#result').innerHTML += "<h3>Verified as " + (is_verified ? 'true' : 'false') + "</h2>";
+
+    })();
   </script>
   <div id="result">
 

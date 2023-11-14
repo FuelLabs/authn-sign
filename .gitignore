@@ -3,6 +3,7 @@ build
 old
 example/authn-sign.js
 example/.gitignore
+fuel
 
 # Logs
 logs

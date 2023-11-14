@@ -3,6 +3,7 @@ const { client, utils } = require('@passwordless-id/webauthn');
 // Convert signature from ASN.1 sequence to "raw" format.
 function convertASN1toRaw(signatureBuffer= {}) {
     const usignature = new Uint8Array(signatureBuffer);
+
     const rStart = usignature[4] === 0 ? 5 : 4;
     const rEnd = rStart + 32;
     const sStart = usignature[rEnd + 2] === 0 ? rEnd + 3 : rEnd + 2;
@@ -74,6 +75,7 @@ function clientDataToJSON(clientData) {
     const decodedClientData = utf8Decoder.decode(
         utils.parseBase64url(clientData),
     );
+    const json_object = JSON.parse(decodedClientData);
 
     // Extract the pre and post challenge strings from the UTF-8 encoded JSON.
     const searchString = '"challenge":"';
@@ -81,13 +83,17 @@ function clientDataToJSON(clientData) {
     const challengeEnd = decodedClientData.indexOf('"', challengeStart + searchString.length);
     const preChallenge =  decodedClientData.substring(0, challengeStart + searchString.length);
     const postChallenge =  decodedClientData.slice(challengeEnd);
-    const json_object = JSON.parse(decodedClientData);
+    const encodedChallenge = utils.bufferToHex(utils.toBuffer(json_object.challenge));
+    const encoded = bufferToHex(utils.parseBase64url(clientData));
+    const prePost = encoded.split(encodedChallenge.slice(2));
 
     // Parse the string as an object.
     return {
-        encoded: base64ToHex(clientData),
-        challengeEncoded: base64ToHex(json_object.challenge),
+        encoded,
+        challengeEncoded: '0x' + encodedChallenge,
+        preChallengeEncoded: '0x' + utils.bufferToHex(utils.toBuffer(preChallenge)),
         preChallenge,
+        postChallengeEncoded: '0x' + utils.bufferToHex(utils.toBuffer(postChallenge)),
         postChallenge,
         ...json_object,
     };
@@ -99,12 +105,11 @@ async function register(username = "", opts = {}) {
     const register_result = await (opts.client || client).register(
         username,
         opts.challenge || 'random-challenge-base64-encoded', {
-        authenticatorType: "auto",
+        authenticatorType: "local",
         userVerification: "required",
-        timeout: 60000,
         attestation: false,
-        userHandle: "recommended to set it to a random 64 bytes value",
-        debug: false,
+        discoverable: false,
+        debug: true,
         ...opts,
     });
 
@@ -115,6 +120,7 @@ async function register(username = "", opts = {}) {
         credentialId: base64ToHex(register_result.credential.id),
         username,
         publicKey: await cryptoKeyToHex(await parseCryptoKey(register_result.credential.publicKey)),
+        publicKeyCompact: '0x' + (await cryptoKeyToHex(await parseCryptoKey(register_result.credential.publicKey))).slice(4),
     };
 }
 
@@ -136,6 +142,8 @@ async function sign(account = {}, challenge = "0x", opts = {}) {
         ),
     );
 
+    const sig = bufferToHex(convertASN1toRaw(utils.parseBase64url(authenticate_result.signature)));
+
     // Return formatted result.
     return {
         account,
@@ -144,7 +152,8 @@ async function sign(account = {}, challenge = "0x", opts = {}) {
         authenticatorData: base64ToHex(authenticate_result.authenticatorData),
         clientData: clientDataToJSON(authenticate_result.clientData),
         credentialId: base64ToHex(authenticate_result.credentialId),
-        signature: bufferToHex(convertASN1toRaw(utils.parseBase64url(authenticate_result.signature))),
+        signature: sig,
+        signatureEncoded: sig,
     };
 }
 
@@ -172,8 +181,7 @@ async function verify(signature_object = {}) {
     }, crypto_key, signature, message);
 }
 
-// Export functions.
-module.exports = {
+const obj = {
     utils: {
         ...utils,
         hexToBuffer,
@@ -191,3 +199,11 @@ module.exports = {
     sign,
     verify,
 };
+
+// If window.
+if (typeof window !== 'undefined') {
+    window.authn = obj;
+}
+
+// Export functions.
+module.exports = obj;
