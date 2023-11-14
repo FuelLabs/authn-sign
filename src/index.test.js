@@ -136,21 +136,15 @@ test("back and forth", async () => {
     const transaction_hash = '0xb4f62ae3e337421868782a88ff7d81a8bf44ef6722dfcd0c70d08a0adc25663d';
     const signature = await sign(account, transaction_hash, { client });
 
-    // console.log(signature);
-    
     // This would happen on chain.
     const signedData = signature.clientData.preChallenge 
       + utils.hexToBase64(transaction_hash).slice(0, -1) // remove last character
       + signature.clientData.postChallenge;
     const clientDataHash = utils.bufferToHex(await utils.sha256(utils.toBuffer(signedData)));
 
-    // console.log(clientDataHash);
-
     const message = utils.concatHexStrings(signature.authenticatorData, clientDataHash);
     const messageHash = utils.bufferToHex(await utils.sha256(message));
 
-    // console.log(messageHash);
-    
     // This P-256 verficiation would also happen on chain.
     /*
     const is_verified = await verify({
