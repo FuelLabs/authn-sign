@@ -151,15 +151,17 @@ export function decode_signature(signatureCompact:string = '0x'): any {
     };
 }
 
+// Remove base64 padding.
+function removeBase64Padding(data:string): string {
+    return data.substring(0, data.indexOf("=", data.length - 2));
+}
+
 // ClientData to JSON.
 function clientDataToJSON(clientData:string):any {
     const utf8Decoder = new TextDecoder('utf-8');
     const decodedClientData = utf8Decoder.decode(
         parseBase64url(clientData),
     );
-
-    console.log(decodedClientData);
-
     const json_object = JSON.parse(decodedClientData);
 
     // Extract the pre and post challenge strings from the UTF-8 encoded JSON.
@@ -175,12 +177,65 @@ function clientDataToJSON(clientData:string):any {
     return {
         encoded,
         challengeEncoded: encodedChallenge,
-        preChallengeEncoded: '0x' + bufferToHex(toBuffer(preChallenge)),
+        preChallengeEncoded: bufferToHex(toBuffer(preChallenge)),
         preChallenge,
-        postChallengeEncoded: '0x' + bufferToHex(toBuffer(postChallenge)),
+        postChallengeEncoded: bufferToHex(toBuffer(postChallenge)),
         postChallenge,
         ...json_object,
     };
+}
+
+/*
+fn main(signature:B512, authid:Bytes, txid:b256, pre:Bytes, post:Bytes) -> bool {
+    // Compute the digest.
+    let digest = webauthn_hash(authid, pre, Bytes::from(txid), post);
+
+    // Derive the public key.
+    let public_key = ec_recover_r1(signature, digest).unwrap();
+
+    // Derived address == the Address.
+    sha256(public_key.into()) == ADDRESS // && txid == tx_id()
+}
+*/
+
+// Simulate what its like for onchain verification.
+export async function simulate_onchain_verification(
+    publicKey: string = "0x",
+    publicKeyCompact: string = "0x",
+    address: string = "0x",
+    authdata: string = "0x",
+    pre: string = "0x",
+    challenge: string = "0x",
+    post: string = "0x",
+    signature: string = "0x",
+): Promise<boolean> {
+    // Encoded pre + (challenge) + post.
+    const clientData = pre
+        + bufferToHex(toBuffer(hexToBase64(challenge).slice(0, -1))).slice(2)
+        + post.slice(2);
+
+    const clientDataHash = bufferToHex(await sha256(hexToBuffer(clientData)));
+
+    const message = bufferToHex(concatHexStrings(authdata, clientDataHash));
+    const computedAddress = bufferToHex(await sha256(hexToBuffer(publicKeyCompact)));
+
+    // Check public key.
+    if ((publicKeyCompact.length - 2) / 2 != 64) {
+        throw new Error("invalid publicKey length shoudld be 64");
+    }
+
+    // Check address.
+    if (computedAddress != address) {
+        throw new Error("invalid address");
+    }
+
+    // Check verification.
+    return secp256r1.verify(
+        decode_signature(signature).signature.slice(2),
+        message.slice(2),
+        publicKey.slice(2),
+        { lowS: false, prehash: true },
+    ) === true;
 }
 
 export default class Account {
@@ -196,6 +251,10 @@ export default class Account {
     get username(): string { return this.#username; }
     get publicKey(): string { return this.#publicKey; }
     get publicKeyCompact(): string { return '0x' + this.#publicKey.slice(4); }
+
+    async address(): Promise<string> {
+        return bufferToHex(await sha256(hexToBuffer(this.publicKeyCompact)));
+    }
 
     /**
      *  The ```constructor``` method for constructing an account.
@@ -288,9 +347,12 @@ export default class Account {
         // Setup default options.
         options = options || {};
 
+        // Challenge in base64.
+        const challengeBase64 = toBase64url(parseHexString(challenge));
+
         // Authentication options.
         const authOptions: any = {
-            challenge: parseBase64url(toBase64url(parseHexString(challenge))),
+            challenge: parseBase64url(challengeBase64),
             rpId: this.#options.window.location.hostname,
             allowCredentials: [{
                 id: parseBase64url(hexToBase64(this.#id).slice(0, -1)),
@@ -380,14 +442,17 @@ export default class Account {
         ) === true;
 
         // Produce normalized signature.
+        // THIS IS NOT CORRECT.
+        // We should attempt normalization with two recovery bits to ensure tx is valid.
         let normalized = null;
         if (normalizedVerify0) normalized = normalizeEncoded0;
         if (normalizedVerify1) normalized = normalizeEncoded1;
-        if (unnormalizedVerify0) normalized = normalizeEncoded0;
-        if (unnormalizedVerify1) normalized = normalizeEncoded0;
+        // if (unnormalizedVerify0) normalized = normalizeEncoded0;
+        // if (unnormalizedVerify1) normalized = normalizeEncoded0;
 
         // Return the signature data.
         return {
+            challengePaddingLength: challengeBase64,
             digest: bufferToHex(await sha256(parseHexString(message))),
             authenticatorData: bufferToHex(authenticatorData),
             clientData: clientDataToJSON(clientData),
@@ -398,19 +463,12 @@ export default class Account {
         };
      }
 
-     async verify(message:string = "0x", signature:string = "0x"): Promise<any> {
-        // Produce crypto key object.
-        const crypto_key = await crypto.subtle.importKey('raw', parseHexString(this.#publicKey), {
-            name: 'ECDSA',
-            namedCurve: 'P-256',
-            hash: 'SHA-256',
-        }, true, ['verify']);
-    
-        // Return result.
-        return await crypto.subtle.verify({
-            name: 'ECDSA',
-            namedCurve: 'P-256',
-            hash: 'SHA-256',
-        }, crypto_key, parseHexString(signature), parseHexString(message));
+     verify(message:string = "0x", signature:string = "0x"): boolean {
+        return secp256r1.verify(
+            signature.slice(2),
+            message.slice(2),
+            this.#publicKey.slice(2),
+            { lowS: false, prehash: true },
+        ) === true;
     }
 }

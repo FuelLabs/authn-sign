@@ -3,6 +3,7 @@ A simplified browser interface for WebAuthn focused on secp256r1 (P-256) and SHA
 
 ## Features
 - `register`, `sign` (i.e. authenticate) and `recover` from WebAuthn.
+- Supports EIP-2098 encoded and non-encoded signatures.
 - Designed for blockchain applications which typically use *prefixed hex data* encoding.
 - Extremly light with minimal dependancies (just an interface over `@passwordless-id/webauthn`).
 - Decoded `pre` and `post` challenge JSON `clientData` strings provided out of the box.
@@ -152,7 +153,6 @@ utils; // See source.
 ```
 
 ## Todo
-- Typescript typing.
 - Nits and cleanup for encoding.
 - Make optional the dependancy on node/browser crypto module.
 - Remove dependancy on @passwordless-id/webauthn.

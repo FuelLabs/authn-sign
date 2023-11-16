@@ -1,79 +1,72 @@
 <html>
-    <head></head>
+    <head>
+        <title>Authn-Sign Demo</title>
+    </head>
     <body>
         <script type="module">
-            import Account, { hexToBase64, bufferToHex, sha256, toBuffer, parseHexString, concatHexStrings } from "./index.js";
+            import Account, {
+                simulate_onchain_verification,
+                hexToBase64, 
+                bufferToHex,
+                sha256,
+                toBuffer,
+                parseHexString,
+                concatHexStrings
+            } from "./authn-sign.js";
+            import build_and_try from './index.fuel.js';
 
             (async () => {
-                const account = new Account();
+                await build_and_try();
 
-                console.log(await account.register('account_1', { debug: true }));
+                const account = new Account(
+                    /*
+                    'account_1',
+                    '0xde73483f049d4af92050eee9a84221268a7a81122d4e8023784758edbdd9bf01',
+                    '0x048292dd5ee3865e2a0b122eb142286dde6fd8e28cd34803bf3d1b68c2a9ddea919217ba43acc469c74b61be70d154b8b65b0e970d8cf075db868d76b8c2a73be0'
+                    */
+                );
 
-                const challenge = '0x32';
+                await account.register('account_1');
 
-                const signature = await account.sign(challenge, { debug: true });
+                const details = {
+                    publicKey: account.publicKeyCompact,
+                    address: await account.address(),
+                    id: account.id,
+                };
 
-                console.log(signature);
+                // Write to result.
+                document.querySelector('#result').innerHTML += "<h3>Account:</h3> <pre><code>" + JSON.stringify(details, null, 2) + '</code></pre>';
 
-                // This would happen on chain.
-                const signedData = signature.clientData.preChallenge 
-                    + hexToBase64(challenge).slice(0, -2) // remove last character
-                    + signature.clientData.postChallenge;
-                const clientDataHash = bufferToHex(await sha256(toBuffer(signedData)));
+                const challenge = '0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 
-                const message = bufferToHex(concatHexStrings(signature.authenticatorData, clientDataHash));
-                // const messageHash = bufferToHex(await utils.sha256(message));
+                const signature = await account.sign(challenge);
 
-                console.log(signedData, message);
+                // Write to result.
+                document.querySelector('#result').innerHTML += "<h3>Signature:</h3> <pre><code>" + JSON.stringify(signature, null, 2) + '</code></pre>';
 
-                console.log(account.publicKey);
+                // Check EIP-2098.
+                const check_eip2098 = await simulate_onchain_verification(
+                    account.publicKey,
+                    account.publicKeyCompact,
+                    details.address,
+                    signature.authenticatorData,
+                    signature.clientData.preChallengeEncoded,
+                    challenge,
+                    signature.clientData.postChallengeEncoded,
+                    signature.normalized,
+                );
 
-                console.log(await account.verify(message, signature.signature));
+                // Verify check.
+                const check_normal = account.verify(signature.message, signature.signature);
+
+                // Write to result.
+                document.querySelector('#result').innerHTML += `<h3>Signature:</h3> <pre><code>Verify on EIP-2098 ${check_eip2098} and P-256 ${check_normal}</code></pre>`;
             })()
-            .then(console.log)
-            .catch(console.error);
-
-            /*
-            function toBuffer(txt) {
-                return Uint8Array.from(txt, c => c.charCodeAt(0)).buffer; // @ts-nocheck
-            }
-
-            const publicKeyCredentialCreationOptions = {
-                challenge: toBuffer('random-challenge-base64-encoded'),
-                rp: {
-                    id: window.location.hostname,
-                    name: window.location.hostname,
-                },
-                user: {
-                    id: Uint8Array.from("UZSL85T9AFC", c => c.charCodeAt(0)),
-                    name: "lee@webauthn.guide",
-                    displayName: "Lee",
-                },
-                allowCredentials: [{
-                    type: 'public-key',
-                    transports: ["internal", "hybrid"],
-                }],
-                pubKeyCredParams: [{alg: -7, type: "public-key"}], // P-256
-                "authenticatorSelection": {
-                    "userVerification": "required",
-                    "authenticatorAttachment": "platform",
-                    "residentKey": "preferred",
-                    "requireResidentKey": false
-                },
-                "attestation": "none",
-                timeout: 60000,
-            };
-           
-            (async () => {
-                const credential = await navigator.credentials.create({
-                    publicKey: publicKeyCredentialCreationOptions,
-                });
-
-                console.log(credential);
-
-                JSON.stringify(credential);
-            })();
-            */
+            .then(() => {})
+            .catch(error => {
+                document.querySelector('#result').innerHTML += `<h3>Error:</h3> <pre><code>${JSON.stringify(error, null, 2)}</code></pre>`;
+            });
         </script>
+        <div id="result"></div>
     </body>
 </html>

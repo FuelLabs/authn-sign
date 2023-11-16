@@ -1907,7 +1907,6 @@ function decode_signature(signatureCompact = "0x") {
 var clientDataToJSON = function(clientData) {
   const utf8Decoder = new TextDecoder("utf-8");
   const decodedClientData = utf8Decoder.decode(parseBase64url(clientData));
-  console.log(decodedClientData);
   const json_object = JSON.parse(decodedClientData);
   const searchString = '"challenge":"';
   const challengeStart = decodedClientData.indexOf(searchString);
@@ -1919,13 +1918,26 @@ var clientDataToJSON = function(clientData) {
   return {
     encoded,
     challengeEncoded: encodedChallenge,
-    preChallengeEncoded: "0x" + bufferToHex(toBuffer(preChallenge)),
+    preChallengeEncoded: bufferToHex(toBuffer(preChallenge)),
     preChallenge,
-    postChallengeEncoded: "0x" + bufferToHex(toBuffer(postChallenge)),
+    postChallengeEncoded: bufferToHex(toBuffer(postChallenge)),
     postChallenge,
     ...json_object
   };
 };
+async function simulate_onchain_verification(publicKey = "0x", publicKeyCompact = "0x", address = "0x", authdata = "0x", pre = "0x", challenge = "0x", post = "0x", signature = "0x") {
+  const clientData = pre + bufferToHex(toBuffer(hexToBase64(challenge).slice(0, -1))).slice(2) + post.slice(2);
+  const clientDataHash = bufferToHex(await sha2563(hexToBuffer(clientData)));
+  const message = bufferToHex(concatHexStrings(authdata, clientDataHash));
+  const computedAddress = bufferToHex(await sha2563(hexToBuffer(publicKeyCompact)));
+  if ((publicKeyCompact.length - 2) / 2 != 64) {
+    throw new Error("invalid publicKey length shoudld be 64");
+  }
+  if (computedAddress != address) {
+    throw new Error("invalid address");
+  }
+  return secp256r1.verify(decode_signature(signature).signature.slice(2), message.slice(2), publicKey.slice(2), { lowS: false, prehash: true }) === true;
+}
 var windowObject = {
   location: {
     hostname: ""
@@ -1961,6 +1973,9 @@ class Account {
   }
   get publicKeyCompact() {
     return "0x" + this.#publicKey.slice(4);
+  }
+  async address() {
+    return bufferToHex(await sha2563(hexToBuffer(this.publicKeyCompact)));
   }
   constructor(username, id, pulicKey, options) {
     this.#id = id;
@@ -2019,8 +2034,9 @@ class Account {
   }
   async sign(challenge = "0x", options) {
     options = options || {};
+    const challengeBase64 = toBase64url(parseHexString(challenge));
     const authOptions = {
-      challenge: parseBase64url(toBase64url(parseHexString(challenge))),
+      challenge: parseBase64url(challengeBase64),
       rpId: this.#options.window.location.hostname,
       allowCredentials: [{
         id: parseBase64url(hexToBase64(this.#id).slice(0, -1)),
@@ -2060,11 +2076,8 @@ class Account {
       normalized = normalizeEncoded0;
     if (normalizedVerify1)
       normalized = normalizeEncoded1;
-    if (unnormalizedVerify0)
-      normalized = normalizeEncoded0;
-    if (unnormalizedVerify1)
-      normalized = normalizeEncoded0;
     return {
+      challengePaddingLength: challengeBase64,
       digest: bufferToHex(await sha2563(parseHexString(message))),
       authenticatorData: bufferToHex(authenticatorData),
       clientData: clientDataToJSON(clientData),
@@ -2074,22 +2087,14 @@ class Account {
       authOptions
     };
   }
-  async verify(message = "0x", signature = "0x") {
-    const crypto_key = await crypto.subtle.importKey("raw", parseHexString(this.#publicKey), {
-      name: "ECDSA",
-      namedCurve: "P-256",
-      hash: "SHA-256"
-    }, true, ["verify"]);
-    return await crypto.subtle.verify({
-      name: "ECDSA",
-      namedCurve: "P-256",
-      hash: "SHA-256"
-    }, crypto_key, parseHexString(signature), parseHexString(message));
+  verify(message = "0x", signature = "0x") {
+    return secp256r1.verify(signature.slice(2), message.slice(2), this.#publicKey.slice(2), { lowS: false, prehash: true }) === true;
   }
 }
 export {
   toBuffer,
   toBase64url,
+  simulate_onchain_verification,
   sha2563 as sha256,
   randomChallenge,
   parseHexString,
@@ -2109,3 +2114,5 @@ export {
   bufferToHex,
   base64ToHex
 };
+
+//# debugId=E505085A060A271164756e2164756e21

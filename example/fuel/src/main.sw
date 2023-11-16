@@ -171,6 +171,9 @@ const BASE64_DICT: [u8; 64] = [
     0x5f, // 0x2f
 ];
 
+// The padding length typically appended by base64 to a 32 byte value.
+const BYTE32BASE64PADDING = 1;
+
 // WebAuthn SHA-256 Hash.
 pub fn webauthn_hash(
     authenticatorData: Bytes,
@@ -180,7 +183,7 @@ pub fn webauthn_hash(
 ) -> b256 {
     // Encode the challenge.
     let challengeData = base64_encode(challenge).as_bytes();
-    let (challengeEncoded, challengeEndSlice) = challengeData.split_at(challengeData.len() - 1);
+    let (challengeEncoded, challengeEndSlice) = challengeData.split_at(challengeData.len() - BYTE32BASE64PADDING);
 
     // Build the clientData.
     let mut clientData = preChallenge;
@@ -193,13 +196,15 @@ pub fn webauthn_hash(
     // Produce the message.
     let mut message = authenticatorData;
     message.append(clientHash);
-   
+
     // Hash the message.
     sha256(message)
 }
 
-// The owner address.
-const ADDRESS = 0xaf3867bc4a5c15cec05f5dbbea354c2a294408ecc68d0306a250718e3af1fc76;
+// The address of the predicate.
+configurable {
+	ADDRESS: b256 = 0xe1037e9229115834a823d6eee714f8eb89906a14a83074f4e9515d8a80e63d95,
+}
 
 // WebAuthn P-256 predicate.
 fn main(signature:B512, authid:Bytes, txid:b256, pre:Bytes, post:Bytes) -> bool {
@@ -210,8 +215,36 @@ fn main(signature:B512, authid:Bytes, txid:b256, pre:Bytes, post:Bytes) -> bool 
     let public_key = ec_recover_r1(signature, digest).unwrap();
 
     // Derived address == the Address.
-    sha256(public_key.into()) == ADDRESS // && txid == tx_id()
+    sha256(public_key.into()) == ADDRESS // sha256(public_key.into()) == ADDRESS && // && txid == tx_id()
 }
+
+/*
+#[test]
+fn test_webauthn() {
+    let mut preChallenge = Bytes::from(                0x7b2274797065223a22776562617574686e2e676574222c226368616c6c656e67);
+                       preChallenge.append(Bytes::from(0x65223a2200000000000000000000000000000000000000000000000000000000));
+    let (pre,e0) = preChallenge.split_at(32 + 4);
+
+    let mut postChallenge =Bytes::from(                 0x222c226f726967696e223a2268747470733a2f2f6e6176696761746f722d6976);
+                       postChallenge.append(Bytes::from(0x6f72792e76657263656c2e617070222c2263726f73734f726967696e223a6661));
+                       postChallenge.append(Bytes::from(0x6c73657d00000000000000000000000000000000000000000000000000000000));
+    let (post,e1) = postChallenge.split_at((2 * 32) + 4);
+                                       
+    let mut authID =       Bytes::from(              0x75a448b91bb82a255757e61ba3eb7afe282c09842485268d4d72a027ec0cffc8);
+                           authID.append(Bytes::from(0x0500000000000000000000000000000000000000000000000000000000000000));
+    let (authenticationId,e2) = authID.split_at(32 + 5);
+
+    // Maybe needs signature encoding.
+    let signature= B512::from((
+                       0xaec03df2a7c71bddc29c5593e9a6027b7393918a9342034613857be798a654a0,
+                       0x183506c5a3c3f1cfac461a66090993e9e75136aa4664fbd3ddc0c489f2114faa
+                       ));
+
+    let txid =         0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855;
+
+    assert_eq(main(signature, authenticationId, txid, pre, post), true);
+}
+*/
 
 /*
 // Ensure this all works correctly.
