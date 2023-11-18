@@ -27,7 +27,7 @@
   "type": "module",
   "scripts": {
     "move_types": "mv build/index.d.ts build/authn-sign.d.ts",
-    "copy_to_example": "cp build/authn-sign.js example/authn-sign.js && cp build/authn-sign.js src/index.js",
+    "copy_to_example": "cp build/authn-sign.js example/authn-sign.js",
     "build:types": "tsc src/index.ts --declaration --allowJs --emitDeclarationOnly --outDir build --target es2021",
     "build:min": "bun build ./src/index.ts --outdir ./build/ --entry-naming [dir]/authn-sign.min.[ext] --target browser --minify --sourcemap=external",
     "build:esm": "bun build ./src/index.ts --outdir ./build/ --entry-naming [dir]/authn-sign.esm.[ext] --target browser --format esm --sourcemap=external",
