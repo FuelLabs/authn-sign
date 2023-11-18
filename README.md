@@ -109,6 +109,67 @@ authn-sign.min.js        35.44 KB
 authn-sign.js        63.70 KB
 ```
 
+## Exports
+```ts
+export declare function toBuffer(txt: string): ArrayBuffer;
+export declare function parseBuffer(buffer: ArrayBuffer): string;
+export declare function isBase64url(txt: string): boolean;
+export declare function toBase64url(buffer: ArrayBuffer): string;
+export declare function parseBase64url(txt: string): ArrayBuffer;
+export declare function sha256(buffer: ArrayBuffer | Uint8Array): Promise<ArrayBuffer>;
+export declare function concatenateBuffers(buffer1: ArrayBuffer, buffer2: ArrayBuffer): Uint8Array;
+export declare function convertASN1toRaw(signatureBuffer?: {}): Uint8Array;
+export declare function hexToBuffer(value: string): ArrayBuffer;
+export declare function parseHexString(value: string): ArrayBuffer;
+export declare function parseCryptoKey(publicKey: string): Promise<any>;
+export declare function bufferToHex(buffer: ArrayBuffer | Uint8Array): string;
+export declare function cryptoKeyToHex(cryptoKey: any): Promise<string>;
+export declare function base64ToHex(value: string): string;
+export declare function hexToBase64(value: string): string;
+export declare function concatHexStrings(value1: string, value2: string): ArrayBuffer;
+export declare const windowObject: any;
+export declare const navigatorObject: any;
+export declare function encode_signature(signatureCompact?: string, recovery_id?: number): string;
+export declare function decode_signature(signatureCompact?: string): any;
+export declare function removeBase64Padding(data: string): string;
+export declare function clientDataToJSON(clientData: string): any;
+export declare function simulate_onchain_verification(publicKey?: string, publicKeyCompact?: string, address?: string, authdata?: string, pre?: string, challenge?: string, post?: string, signature?: string): Promise<boolean>;
+export default class Account {
+    #private;
+    get id(): string;
+    get username(): string;
+    get publicKey(): string;
+    get publicKeyCompact(): string;
+    address(): Promise<string>;
+    /**
+     *  The ```constructor``` method for constructing an account.
+     *
+     *  This allows you to recover an account from a DB to use for authorization.
+     */
+    constructor(username: string, id: string, pulicKey: string, options?: any);
+    /**
+     *  The ```register``` method for signature.
+     *
+     *  This is the primary account register function for WebAuthn.
+     */
+    register(username: string, options?: any): Promise<any>;
+    /**
+     *  The ```sign``` authorization signing method.
+     *
+     *  This uses authorization under the hood to sign a message.
+     */
+    sign(challenge?: string, options?: any): Promise<any>;
+    /**
+     *  The ```verify``` a message and signature aligns with this publicKey.
+     *
+     *  This will enable verification based upon a message and unencoded signature.
+     */
+    verify(message?: string, signature?: string): boolean;
+}
+export declare function recover(signature?: string, message?: string, recoveryBit?: number): string;
+export declare function normalizeSignature(signature?: string, digest?: string, publicKeyCompact?: string): string;
+```
+
 ## Todo
 - Nits and cleanup for encoding.
 - More protective measures against bad values (assertHex etc.).
