@@ -14,7 +14,7 @@
                 concatHexStrings,
                 encode_signature,
             } from "./authn-sign.js";
-            import buildPredicate, { setData, types } from './index.fuel.js';
+            import buildPredicate, { setData, types } from './authn-predicate.min.js';
         
             // Setup the GraphQL provider.
             const provider = await types.Provider.create('https://beta-4.fuel.network/graphql');

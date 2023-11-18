@@ -1,0 +1,22 @@
+{
+  "name": "authn-predicate",
+  "module": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "copy_to_example": "cp build/authn-predicate.min.js ../authn-predicate.min.js",
+    "typegen": "pnpm run fuels typegen -i ./out/debug/*-abi.json -o ./src/types --predicate",
+    "build:min": "bun build ./src/index.ts --outdir ./build/ --entry-naming [dir]/authn-predicate.min.[ext] --target browser --minify --sourcemap=external",
+    "build:esm": "bun build ./src/index.ts --outdir ./build/ --entry-naming [dir]/authn-predicate.esm.[ext] --target browser --format esm --sourcemap=external",
+    "build:unminified": "bun build ./src/index.ts --outdir ./build/ --entry-naming [dir]/authn-predicate.[ext] --target browser --sourcemap=external",
+    "build": "forc build && bun run typegen && bun run build:min && bun run build:esm && bun run build:unminified && bun run copy_to_example"
+  },
+  "dependencies": {
+    "fuels": "^0.67.0"
+  },
+  "devDependencies": {
+    "bun-types": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

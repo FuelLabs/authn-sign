@@ -113,7 +113,7 @@ true
 
 ## Blockchain Verification Check (in NodeJS)
 ```js
-const { register, sign, verify, utils } = require('authn-sign');
+const Account, { register, sign, verify, utils } = require('authn-sign');
 
 // This would happen in the browser.
 const account = await register('username_1');
@@ -140,22 +140,13 @@ console.log(is_verified);
 
 ## Size
 ```
-auth-sign.min.js        15.49 KB
-auth-sign.js            27.25 KB
-```
-
-## Exports
-```ts
-async register(username:String[, opts:Object]): Account;
-async sign(account: Account, message: String[, opts:Object]): Signature;
-async verify({ publicKey: String, message: String, signature: String } | Signture): Bool;
-utils; // See source.
+authn-sign.min.js        35.44 KB
+authn-sign.js        63.70 KB
 ```
 
 ## Todo
 - Nits and cleanup for encoding.
 - Make optional the dependancy on node/browser crypto module.
-- Remove dependancy on @passwordless-id/webauthn.
 
 ## Licence
 

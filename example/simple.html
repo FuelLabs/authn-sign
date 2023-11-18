@@ -1,0 +1,39 @@
+<html>
+    <head>
+        <title>Authn-Sign Simple Demo</title>
+    </head>
+    <body>
+        <script type="module">
+            import Account from "./authn-sign.js";
+
+            // Account 1.
+            const username = "account_1";
+
+            // Authn Account.
+            const account = new Account();
+
+            (async () => {
+                // Register account.
+                await account.register(username);
+
+                // Write to result.
+                document.querySelector('#result').innerHTML += "<h3>Account:</h3> <pre><code>" + JSON.stringify({
+                    "publicKey": account.publicKey,
+                    "publicKeyCompact": account.publicKeyCompact,
+                    "id": account.id,
+                    "username": username,
+                }, null, 2) + '</code></pre>';
+
+                // Set the challenge (this should be the tx ID in the future.).
+                const challenge = '0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+
+                // Sign something.
+                const signature = await account.sign(challenge);
+
+                // Write to result.
+                document.querySelector('#result').innerHTML += "<h3>Signed Result:</h3> <pre><code>" + JSON.stringify(signature, null, 2) + '</code></pre>';
+            })();
+        </script>
+        <div id="result"></div>
+    </body>
+</html>

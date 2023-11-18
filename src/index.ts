@@ -434,6 +434,7 @@ export default class Account {
     }
 }
 
+// Recover a public key from a signature, message and recovery bit.
 export function recover(signature = '0x', message = '0x', recoveryBit = 0) {
     // Normalize signature, encode the recovery bit and recover public key.
     const recovered = secp256r1.Signature.fromCompact(

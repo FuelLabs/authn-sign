@@ -1,11 +1,10 @@
 # Bun
 build
 old
-example/authn-sign.js
 example/.gitignore
-example/index.fuel.js
 /fuel
 /navigator
+src/index.js
 
 # Logs
 logs

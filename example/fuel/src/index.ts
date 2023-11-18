@@ -1,5 +1,4 @@
 import { Predicate, Provider, arrayify, FUEL_NETWORK_URL, BaseAssetId } from 'fuels';
-import type { Bytes, Bits256, Bits512 } from 'fuels';
 import { FuelAbi__factory } from './types/index';
 
 export const types = {
