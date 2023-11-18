@@ -6,6 +6,8 @@ example/.gitignore
 /navigator
 src/index.js
 test.html
+/test
+test
 
 # Logs
 logs

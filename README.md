@@ -21,12 +21,7 @@ Try it now: [authn-sign.vercel.app](https://authn-sign.vercel.app)
 npm install --save authn-sign
 ```
 
-### CDN
-```
-<script type="module" src="https://unpkg.com/authn-sign@latest/build/authn-sign.min.js"></script>
-```
-
-### As a Module
+### CDN (via Module)
 ```
 import Account from "https://unpkg.com/authn-sign@latest/build/authn-sign.min.js";
 ```
