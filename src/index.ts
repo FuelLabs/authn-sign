@@ -132,7 +132,11 @@ const navigatorObject:any = {
 export function encode_signature(signatureCompact:string = '0x', recovery_id:number = 1): string {
     let buffer = new Uint8Array(hexToBuffer(signatureCompact));
 
-    const v = recovery_id == 0 ? 1 : 0 as number;
+    if(buffer[32] >> 7 !== 0) {
+        throw new Error(`Non-normalized signature ${signatureCompact}`);
+    }
+
+    const v = recovery_id;
     buffer[32] = (v << 7) | (buffer[32] & 0x7f);
 
     return bufferToHex(buffer);
@@ -147,7 +151,7 @@ export function decode_signature(signatureCompact:string = '0x'): any {
 
     return {
         signature: bufferToHex(buffer),
-        v,
+        v: v ? 1 : 0,
     };
 }
 
@@ -401,63 +405,16 @@ export default class Account {
             )
         );
 
-        // Attempt signature encoding.
-        const normalizeSignature = secp256r1.Signature.fromCompact(signature.slice(2)).normalizeS();
-        const unnormalizeSignature = secp256r1.Signature.fromCompact(signature.slice(2));
-        const normalizeEncoded0 = encode_signature(bufferToHex(normalizeSignature.toCompactRawBytes()), 0);
-        const normalizeEncoded1 = encode_signature(bufferToHex(normalizeSignature.toCompactRawBytes()), 1);
-        const unnormalizeEncoded0 = encode_signature(bufferToHex(unnormalizeSignature.toCompactRawBytes()), 0);
-        const unnormalizeEncoded1 = encode_signature(bufferToHex(unnormalizeSignature.toCompactRawBytes()), 1);
-        
-        // Decode and attempt recover.
-        const normalizedDecoded0 = decode_signature(normalizeEncoded0);
-        const normalizedDecoded1 = decode_signature(normalizeEncoded1);
-        const unnormalizedDecoded0 = decode_signature(unnormalizeEncoded0);
-        const unnormalizedDecoded1 = decode_signature(unnormalizeEncoded1);
-
-        // Attempt verification to match keys.
-        const normalizedVerify0 = secp256r1.verify(
-            normalizedDecoded0.signature.slice(2),
-            message.slice(2),
-            this.#publicKey.slice(2),
-            { lowS: false, prehash: true },
-        ) === true;
-        const normalizedVerify1 = secp256r1.verify(
-            normalizedDecoded1.signature.slice(2),
-            message.slice(2),
-            this.#publicKey.slice(2),
-            { lowS: false, prehash: true },
-        ) === true;
-        const unnormalizedVerify0 = secp256r1.verify(
-            unnormalizedDecoded0.signature.slice(2),
-            message.slice(2),
-            this.#publicKey.slice(2),
-            { lowS: false, prehash: true },
-        ) === true;
-        const unnormalizedVerify1 = secp256r1.verify(
-            unnormalizedDecoded1.signature.slice(2),
-            message.slice(2),
-            this.#publicKey.slice(2),
-            { lowS: false, prehash: true },
-        ) === true;
-
-        // Produce normalized signature.
-        // THIS IS NOT CORRECT.
-        // We should attempt normalization with two recovery bits to ensure tx is valid.
-        let normalized = null;
-        if (normalizedVerify0) normalized = normalizeEncoded0;
-        if (normalizedVerify1) normalized = normalizeEncoded1;
-        // if (unnormalizedVerify0) normalized = normalizeEncoded0;
-        // if (unnormalizedVerify1) normalized = normalizeEncoded0;
+        const digest = bufferToHex(await sha256(parseHexString(message)));
 
         // Return the signature data.
         return {
             challengePaddingLength: challengeBase64,
-            digest: bufferToHex(await sha256(parseHexString(message))),
+            digest,
             authenticatorData: bufferToHex(authenticatorData),
             clientData: clientDataToJSON(clientData),
             message,
-            normalized, // EIP-2098
+            normalized: normalizeSignature(signature, digest, this.publicKeyCompact), // EIP-2098
             signature,
             authOptions,
         };
@@ -472,3 +429,68 @@ export default class Account {
         ) === true;
     }
 }
+
+function recover(signature = '0x', message = '0x', recoveryBit = 0) {
+    const recovered = secp256r1.Signature.fromCompact(
+        bufferToHex(
+            secp256r1.Signature.fromCompact(
+                signature.slice(2)
+            )
+            .normalizeS()
+            .toCompactRawBytes()
+        ).slice(2),
+    )
+    .addRecoveryBit(recoveryBit)
+    .recoverPublicKey(
+        message.slice(2),
+    );
+
+    return '0x' + recovered.x.toString(16) + recovered.y.toString(16);
+}
+
+// Normalize a signature and encode a recovery bit based upon the public key.
+function normalizeSignature(signature = '0x', digest = "0x", publicKeyCompact = '0x') {
+    let check0 = recover(signature, digest, 0) == publicKeyCompact;
+    let check1 = recover(signature, digest, 1) == publicKeyCompact;
+    let recoveryBit = check0 ? 0 : 1;
+
+    return encode_signature(
+        bufferToHex(
+            secp256r1.Signature.fromCompact(
+                signature.slice(2)
+            )
+            .normalizeS()
+            .toCompactRawBytes()
+        ),
+        recoveryBit,
+    );
+}
+
+/*
+function test() {
+    let publicKey = "0x0491698c5e1d62846f1a42a6e15a3ebef955de429fec5a0b832a94bf4875ef3faba8bdcf29dab9d3238dd4275553d91b34dffd3769ffc5913c730da32d4d96b26d";
+    let message = "0x581101f9a2d61f04c1e820151e76d543914e2d0cfa39bcca8a6e8eed2f942f88";
+    let signature = '0x01e78d022be11ad407651677eb83ec9bc23cf5f99a0021b5a0e312d0d9b56cce4fb480aab1922cace4598c8bcb9b05166f6d7447cba013855b24661b3dc3269c';
+
+    let normalize = (sig = "0x", bit = 0) => encode_signature(
+        bufferToHex(
+            secp256r1.Signature.fromCompact(
+                sig.slice(2)
+            )
+            .normalizeS()
+            .toCompactRawBytes()
+        ),
+        bit,
+    );
+
+    let check0 = recover(signature, message, 0) == '0x' + publicKey.slice(4);
+    let check1 = recover(signature, message, 1) == '0x' + publicKey.slice(4);
+    let recoveryBit = check0 ? 0 : 1;
+
+    let normalized = normalize(signature, recoveryBit);
+
+    console.log(normalized);
+}
+*/
+
+// test();

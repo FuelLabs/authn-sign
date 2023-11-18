@@ -1891,7 +1891,10 @@ function concatHexStrings(value1, value2) {
 }
 function encode_signature(signatureCompact = "0x", recovery_id = 1) {
   let buffer = new Uint8Array(hexToBuffer(signatureCompact));
-  const v = recovery_id == 0 ? 1 : 0;
+  if (buffer[32] >> 7 !== 0) {
+    throw new Error(`Non-normalized signature ${signatureCompact}`);
+  }
+  const v = recovery_id;
   buffer[32] = v << 7 | buffer[32] & 127;
   return bufferToHex(buffer);
 }
@@ -1901,7 +1904,7 @@ function decode_signature(signatureCompact = "0x") {
   buffer[32] = buffer[32] & 127;
   return {
     signature: bufferToHex(buffer),
-    v
+    v: v ? 1 : 0
   };
 }
 var clientDataToJSON = function(clientData) {
@@ -1938,6 +1941,16 @@ async function simulate_onchain_verification(publicKey = "0x", publicKeyCompact 
   }
   return secp256r1.verify(decode_signature(signature).signature.slice(2), message.slice(2), publicKey.slice(2), { lowS: false, prehash: true }) === true;
 }
+var recover = function(signature = "0x", message = "0x", recoveryBit = 0) {
+  const recovered = secp256r1.Signature.fromCompact(bufferToHex(secp256r1.Signature.fromCompact(signature.slice(2)).normalizeS().toCompactRawBytes()).slice(2)).addRecoveryBit(recoveryBit).recoverPublicKey(message.slice(2));
+  return "0x" + recovered.x.toString(16) + recovered.y.toString(16);
+};
+var normalizeSignature = function(signature = "0x", digest = "0x", publicKeyCompact = "0x") {
+  let check0 = recover(signature, digest, 0) == publicKeyCompact;
+  let check1 = recover(signature, digest, 1) == publicKeyCompact;
+  let recoveryBit = check0 ? 0 : 1;
+  return encode_signature(bufferToHex(secp256r1.Signature.fromCompact(signature.slice(2)).normalizeS().toCompactRawBytes()), recoveryBit);
+};
 var windowObject = {
   location: {
     hostname: ""
@@ -2057,32 +2070,14 @@ class Account {
     const authenticatorData = parseBase64url(toBase64url(authentication.response.authenticatorData));
     const message = bufferToHex(concatenateBuffers(authenticatorData, clientHash));
     const signature = bufferToHex(convertASN1toRaw(parseBase64url(toBase64url(authentication.response.signature))));
-    const normalizeSignature = secp256r1.Signature.fromCompact(signature.slice(2)).normalizeS();
-    const unnormalizeSignature = secp256r1.Signature.fromCompact(signature.slice(2));
-    const normalizeEncoded0 = encode_signature(bufferToHex(normalizeSignature.toCompactRawBytes()), 0);
-    const normalizeEncoded1 = encode_signature(bufferToHex(normalizeSignature.toCompactRawBytes()), 1);
-    const unnormalizeEncoded0 = encode_signature(bufferToHex(unnormalizeSignature.toCompactRawBytes()), 0);
-    const unnormalizeEncoded1 = encode_signature(bufferToHex(unnormalizeSignature.toCompactRawBytes()), 1);
-    const normalizedDecoded0 = decode_signature(normalizeEncoded0);
-    const normalizedDecoded1 = decode_signature(normalizeEncoded1);
-    const unnormalizedDecoded0 = decode_signature(unnormalizeEncoded0);
-    const unnormalizedDecoded1 = decode_signature(unnormalizeEncoded1);
-    const normalizedVerify0 = secp256r1.verify(normalizedDecoded0.signature.slice(2), message.slice(2), this.#publicKey.slice(2), { lowS: false, prehash: true }) === true;
-    const normalizedVerify1 = secp256r1.verify(normalizedDecoded1.signature.slice(2), message.slice(2), this.#publicKey.slice(2), { lowS: false, prehash: true }) === true;
-    const unnormalizedVerify0 = secp256r1.verify(unnormalizedDecoded0.signature.slice(2), message.slice(2), this.#publicKey.slice(2), { lowS: false, prehash: true }) === true;
-    const unnormalizedVerify1 = secp256r1.verify(unnormalizedDecoded1.signature.slice(2), message.slice(2), this.#publicKey.slice(2), { lowS: false, prehash: true }) === true;
-    let normalized = null;
-    if (normalizedVerify0)
-      normalized = normalizeEncoded0;
-    if (normalizedVerify1)
-      normalized = normalizeEncoded1;
+    const digest = bufferToHex(await sha2563(parseHexString(message)));
     return {
       challengePaddingLength: challengeBase64,
-      digest: bufferToHex(await sha2563(parseHexString(message))),
+      digest,
       authenticatorData: bufferToHex(authenticatorData),
       clientData: clientDataToJSON(clientData),
       message,
-      normalized,
+      normalized: normalizeSignature(signature, digest, this.publicKeyCompact),
       signature,
       authOptions
     };
@@ -2115,4 +2110,4 @@ export {
   base64ToHex
 };
 
-//# debugId=E505085A060A271164756e2164756e21
+//# debugId=07A2AB6082357D3864756e2164756e21

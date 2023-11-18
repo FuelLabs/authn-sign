@@ -11,34 +11,58 @@
                 sha256,
                 toBuffer,
                 parseHexString,
-                concatHexStrings
+                concatHexStrings,
+                encode_signature,
             } from "./authn-sign.js";
-            import build_and_try from './index.fuel.js';
+            import buildPredicate, { setData, types } from './index.fuel.js';
+        
+            // Setup the GraphQL provider.
+            const provider = await types.Provider.create('https://beta-4.fuel.network/graphql');
 
-            (async () => {
-                await build_and_try();
+            // Account.
+            const account = new Account();
+            let details = {};
+            let address = {};
+            let predicate = null;
 
-                const account = new Account(
-                    /*
-                    'account_1',
-                    '0xde73483f049d4af92050eee9a84221268a7a81122d4e8023784758edbdd9bf01',
-                    '0x048292dd5ee3865e2a0b122eb142286dde6fd8e28cd34803bf3d1b68c2a9ddea919217ba43acc469c74b61be70d154b8b65b0e970d8cf075db868d76b8c2a73be0'
-                    */
-                );
-
+            // Set the challenge (this should be the tx ID in the future.).
+            const challenge = '0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+            
+            // Register.
+            document.querySelector('#register').addEventListener('click', async () => {
                 await account.register('account_1');
 
-                const details = {
+                // Set details.
+                details = {
                     publicKey: account.publicKeyCompact,
                     address: await account.address(),
                     id: account.id,
                 };
 
+                // Build the predicate.
+                predicate = buildPredicate(provider, details.address);
+
+                // Get the Fuel address.
+                address = {
+                    fuel: predicate.address,
+                    hex: predicate.address.toHexString(),
+                };
+
                 // Write to result.
-                document.querySelector('#result').innerHTML += "<h3>Account:</h3> <pre><code>" + JSON.stringify(details, null, 2) + '</code></pre>';
+                document.querySelector('#result').innerHTML += "<h3>Key Information:</h3> <pre><code>" + JSON.stringify(details, null, 2) + '</code></pre>';
 
-                const challenge = '0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+                // Write to result.
+                document.querySelector('#result').innerHTML += "<h3>Fuel Account:</h3> <pre><code>" + JSON.stringify(address, null, 2) + '</code></pre>';
+            });
 
+            document.querySelector('#faucet').addEventListener('click', async () => {
+                if (address.fuel) {
+                    window.open("https://faucet-beta-4.fuel.network/?address=" + address.fuel);
+                }
+            });
+
+            document.querySelector('#sign').addEventListener('click', async () => {
+                // Sign the challenge.
                 const signature = await account.sign(challenge);
 
                 // Write to result.
@@ -61,12 +85,38 @@
 
                 // Write to result.
                 document.querySelector('#result').innerHTML += `<h3>Signature:</h3> <pre><code>Verify on EIP-2098 ${check_eip2098} and P-256 ${check_normal}</code></pre>`;
-            })()
-            .then(() => {})
-            .catch(error => {
-                document.querySelector('#result').innerHTML += `<h3>Error:</h3> <pre><code>${JSON.stringify(error, null, 2)}</code></pre>`;
+
+                // Set the predicate data.
+                setData(
+                    predicate,
+                    signature.normalized,
+                    signature.authenticatorData,
+                    challenge,
+                    signature.clientData.preChallengeEncoded,
+                    signature.clientData.postChallengeEncoded,
+                );
+
+                // Write to result.
+                document.querySelector('#result').innerHTML += `<h3>Transact:</h3> <pre><code>Attempting to send 500 units of Ether to yourself.</code></pre>`;
+
+                // Prepare the transaction.
+                const tx = await predicate
+                    .transfer(predicate.address, 500, types.BaseAssetId, {
+                        gasPrice: 1,
+                        gasLimit: 3_500_000,
+                    });
+
+                // Log it.
+                console.log(tx);
+
+                // Write to result.
+                document.querySelector('#result').innerHTML += `<h3>Transact:</h3> <pre><code>${JSON.stringify(await tx.waitForResult(), null, 2)}</code></pre>`;
             });
         </script>
+        <button id="register">Register</button>
+        <button id="faucet">Faucet</button>
+        <button id="sign">Sign</button>
+
         <div id="result"></div>
     </body>
 </html>
