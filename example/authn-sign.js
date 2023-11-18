@@ -1818,9 +1818,6 @@ var p256 = createCurve({
 var secp256r1 = p256;
 
 // src/index.ts
-function randomChallenge() {
-  return crypto.randomUUID();
-}
 function toBuffer(txt) {
   return Uint8Array.from(txt, (c) => c.charCodeAt(0)).buffer;
 }
@@ -2098,18 +2095,19 @@ var throwInvalid = () => {
   throw new Error("invalid bit");
 };
 export {
+  windowObject,
   toBuffer,
   toBase64url,
   simulate_onchain_verification,
   sha2563 as sha256,
   removeBase64Padding,
   recover,
-  randomChallenge,
   parseHexString,
   parseCryptoKey,
   parseBuffer,
   parseBase64url,
   normalizeSignature,
+  navigatorObject,
   isBase64url,
   hexToBuffer,
   hexToBase64,
@@ -2125,4 +2123,4 @@ export {
   base64ToHex
 };
 
-//# debugId=CF6C9DD22553BACE64756e2164756e21
+//# debugId=B59C928F82B9D00664756e2164756e21

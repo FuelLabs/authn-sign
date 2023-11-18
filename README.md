@@ -1,5 +1,5 @@
 # authn-sign
-A simplified browser interface for WebAuthn focused on secp256r1 (P-256) and SHA-256.
+A simplified browser interface for WebAuthn focused on secp256r1 (P-256) signing.
 
 ## Features
 - `register`, `sign` (i.e. authenticate) and `recover` from WebAuthn.
@@ -116,6 +116,7 @@ authn-sign.js        63.70 KB
 
 ## Todo
 - Nits and cleanup for encoding.
+- Better typing structures (e.g. PublicKey, Signature, CreationOption etc.).
 - Make optional the dependancy on node/browser crypto module.
 
 ## Licence

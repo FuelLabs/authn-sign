@@ -1,12 +1,9 @@
-
+// @ts-ignore
 import { secp256r1 } from '@noble/curves/p256';
 
-export function randomChallenge() {
-    return crypto.randomUUID();
-}
-
 export function toBuffer(txt: string) :ArrayBuffer {
-    return Uint8Array.from(txt, c => c.charCodeAt(0)).buffer; // @ts-nocheck
+    // @ts-ignore
+    return Uint8Array.from(txt, c => c.charCodeAt(0)).buffer;
 }
 
 export function parseBuffer(buffer: ArrayBuffer) :string {
@@ -40,6 +37,7 @@ export function concatenateBuffers(buffer1 :ArrayBuffer, buffer2  :ArrayBuffer):
 
 // Convert signature from ASN.1 sequence to "raw" format.
 export function convertASN1toRaw(signatureBuffer= {}) {
+    // @ts-ignore
     const usignature = new Uint8Array(signatureBuffer);
 
     const rStart = usignature[4] === 0 ? 5 : 4;
@@ -53,6 +51,7 @@ export function convertASN1toRaw(signatureBuffer= {}) {
 
 // Prefixed hex string to buffer.
 export function hexToBuffer(value: string): ArrayBuffer {
+    // @ts-ignore
     return new Uint8Array(value.slice(2).match(/../g).map(h=>parseInt(h,16))).buffer;
 }
 
@@ -68,7 +67,7 @@ export function parseHexString(value: string): ArrayBuffer {
 }
 
 // Parse public key from Buffer.
-export async function parseCryptoKey(publicKey: string): any {
+export async function parseCryptoKey(publicKey: string): Promise<any> {
     // Parse base64 URL.
     const buffer = parseBase64url(publicKey);
 
@@ -110,14 +109,14 @@ export function concatHexStrings(value1: string, value2: string): ArrayBuffer {
 }
 
 // A window object for testing.
-const windowObject:any = {
+export const windowObject:any = {
     location: {
         hostname: "",
     },
 };
 
 // A fake navigator object for testing.
-const navigatorObject:any = {
+export const navigatorObject:any = {
     credentials: {
         create: async () => {
             return {};
@@ -267,7 +266,7 @@ export default class Account {
      *
      *  This is the primary account register function for WebAuthn.
      */
-    async register(username:string, options?:any): any {
+    async register(username:string, options?:any): Promise<any> {
         // Set the username.
         this.#username = username;
 
