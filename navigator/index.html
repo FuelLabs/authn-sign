@@ -19,18 +19,29 @@
             // Setup the GraphQL provider.
             const provider = await types.Provider.create('https://beta-4.fuel.network/graphql');
 
+            // Account 1.
+            const username = "account_1";
+
+            // Get authn account.
+            const authnAccount = localStorage.getItem("authn_account");
+
             // Account.
-            const account = new Account();
+            const account = authnAccount ? new Account(...JSON.parse(authnAccount)) : new Account();
             let details = {};
             let address = {};
             let predicate = null;
 
             // Set the challenge (this should be the tx ID in the future.).
             const challenge = '0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
-            
-            // Register.
-            document.querySelector('#register').addEventListener('click', async () => {
-                await account.register('account_1');
+
+            // Refresh the account.
+            await refresh();
+
+            // Refresh account details from storage (if any).
+            async function refresh() {
+                if (!account.id) {
+                    return;
+                }
 
                 // Set details.
                 details = {
@@ -38,6 +49,13 @@
                     address: await account.address(),
                     id: account.id,
                 };
+
+                // Store data.
+                localStorage.setItem("authn_account", JSON.stringify([
+                    username,
+                    account.id,
+                    account.publicKey,
+                ]));
 
                 // Build the predicate.
                 predicate = buildPredicate(provider, details.address);
@@ -53,6 +71,13 @@
 
                 // Write to result.
                 document.querySelector('#result').innerHTML += "<h3>Fuel Account:</h3> <pre><code>" + JSON.stringify(address, null, 2) + '</code></pre>';
+            }
+
+            // Register.
+            document.querySelector('#register').addEventListener('click', async () => {
+                await account.register(username);
+
+                await refresh();
             });
 
             document.querySelector('#faucet').addEventListener('click', async () => {

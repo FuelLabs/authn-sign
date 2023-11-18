@@ -1943,13 +1943,31 @@ async function simulate_onchain_verification(publicKey = "0x", publicKeyCompact 
 }
 var recover = function(signature = "0x", message = "0x", recoveryBit = 0) {
   const recovered = secp256r1.Signature.fromCompact(bufferToHex(secp256r1.Signature.fromCompact(signature.slice(2)).normalizeS().toCompactRawBytes()).slice(2)).addRecoveryBit(recoveryBit).recoverPublicKey(message.slice(2));
-  return "0x" + recovered.x.toString(16) + recovered.y.toString(16);
+  let y = recovered.y.toString(16);
+  if (y.length == 63) {
+    y = "0" + y;
+  }
+  return "0x" + recovered.x.toString(16) + y;
 };
 var normalizeSignature = function(signature = "0x", digest = "0x", publicKeyCompact = "0x") {
   let check0 = recover(signature, digest, 0) == publicKeyCompact;
   let check1 = recover(signature, digest, 1) == publicKeyCompact;
-  let recoveryBit = check0 ? 0 : 1;
-  return encode_signature(bufferToHex(secp256r1.Signature.fromCompact(signature.slice(2)).normalizeS().toCompactRawBytes()), recoveryBit);
+  let recoveryBit = check0 ? 0 : check1 ? 1 : throwInvalid();
+  const normalizedSignature = bufferToHex(secp256r1.Signature.fromCompact(signature.slice(2)).normalizeS().toCompactRawBytes());
+  return encode_signature(normalizedSignature, recoveryBit);
+};
+var test = function() {
+  let publicKey = "0x04d04e2f01161f0db9316f28cdcd98a4eeaee15fb4caae39ca549486da5d9008cb117e013dbc1be5d4d1c3c2981ecf15b4fa9d562e6f0d1aa412b84d4cec8f83c8";
+  let message = "0x581101f9a2d61f04c1e820151e76d543914e2d0cfa39bcca8a6e8eed2f942f88";
+  let signature = "0xbcac9c732efccbe80ffa1b26b11161f99540026fe730d2f34aa077554fd4b634aa76c0d7c548c1e44fadbb08b07891767a4d72cbba0d457f46bd45df667955c1";
+  const throwInvalid = () => {
+    throw new Error("invalid bit");
+  };
+  let check0 = recover(signature, message, 0) == "0x" + publicKey.slice(4);
+  let check1 = recover(signature, message, 1) == "0x" + publicKey.slice(4);
+  let recoveryBit = check0 ? 0 : check1 ? 1 : throwInvalid();
+  let normalized = normalizeSignature(signature, message, "0x" + publicKey.slice(4));
+  console.log(normalized);
 };
 var windowObject = {
   location: {
@@ -2012,7 +2030,7 @@ class Account {
       },
       allowCredentials: [{
         type: "public-key",
-        transports: ["internal", "hybrid"]
+        transports: ["internal"]
       }],
       pubKeyCredParams: [{
         alg: -7,
@@ -2086,6 +2104,10 @@ class Account {
     return secp256r1.verify(signature.slice(2), message.slice(2), this.#publicKey.slice(2), { lowS: false, prehash: true }) === true;
   }
 }
+var throwInvalid = () => {
+  throw new Error("invalid bit");
+};
+test();
 export {
   toBuffer,
   toBase64url,
@@ -2110,4 +2132,4 @@ export {
   base64ToHex
 };
 
-//# debugId=07A2AB6082357D3864756e2164756e21
+//# debugId=867C380CB6B6E62564756e2164756e21

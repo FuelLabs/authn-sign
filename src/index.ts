@@ -300,7 +300,7 @@ export default class Account {
             },
             allowCredentials: [{
                 type: 'public-key',
-                transports: ["internal", "hybrid"],
+                transports: ["internal" /*, "hybrid"*/],
             }],
             pubKeyCredParams: [{
                 alg: -7, // P-256
@@ -445,52 +445,54 @@ function recover(signature = '0x', message = '0x', recoveryBit = 0) {
         message.slice(2),
     );
 
-    return '0x' + recovered.x.toString(16) + recovered.y.toString(16);
+    // encode y
+    let y = recovered.y.toString(16);
+    if (y.length == 63) {
+        y = '0' + y;
+    }
+
+    return '0x' + recovered.x.toString(16) + y;
 }
+
+// Throw invalid.
+const throwInvalid = () => { throw new Error('invalid bit'); }
 
 // Normalize a signature and encode a recovery bit based upon the public key.
 function normalizeSignature(signature = '0x', digest = "0x", publicKeyCompact = '0x') {
     let check0 = recover(signature, digest, 0) == publicKeyCompact;
     let check1 = recover(signature, digest, 1) == publicKeyCompact;
-    let recoveryBit = check0 ? 0 : 1;
+    let recoveryBit = check0 ? 0 : (check1 ? 1 : throwInvalid());
+
+    const normalizedSignature = bufferToHex(
+        secp256r1.Signature.fromCompact(
+            signature.slice(2)
+        )
+        .normalizeS()
+        .toCompactRawBytes()
+    );
 
     return encode_signature(
-        bufferToHex(
-            secp256r1.Signature.fromCompact(
-                signature.slice(2)
-            )
-            .normalizeS()
-            .toCompactRawBytes()
-        ),
+        normalizedSignature,
         recoveryBit,
     );
 }
 
-/*
 function test() {
-    let publicKey = "0x0491698c5e1d62846f1a42a6e15a3ebef955de429fec5a0b832a94bf4875ef3faba8bdcf29dab9d3238dd4275553d91b34dffd3769ffc5913c730da32d4d96b26d";
+    let publicKey = "0x04d04e2f01161f0db9316f28cdcd98a4eeaee15fb4caae39ca549486da5d9008cb117e013dbc1be5d4d1c3c2981ecf15b4fa9d562e6f0d1aa412b84d4cec8f83c8";
     let message = "0x581101f9a2d61f04c1e820151e76d543914e2d0cfa39bcca8a6e8eed2f942f88";
-    let signature = '0x01e78d022be11ad407651677eb83ec9bc23cf5f99a0021b5a0e312d0d9b56cce4fb480aab1922cace4598c8bcb9b05166f6d7447cba013855b24661b3dc3269c';
+    let signature = '0xbcac9c732efccbe80ffa1b26b11161f99540026fe730d2f34aa077554fd4b634aa76c0d7c548c1e44fadbb08b07891767a4d72cbba0d457f46bd45df667955c1';
 
-    let normalize = (sig = "0x", bit = 0) => encode_signature(
-        bufferToHex(
-            secp256r1.Signature.fromCompact(
-                sig.slice(2)
-            )
-            .normalizeS()
-            .toCompactRawBytes()
-        ),
-        bit,
-    );
+    const throwInvalid = () => { throw new Error('invalid bit'); }
 
     let check0 = recover(signature, message, 0) == '0x' + publicKey.slice(4);
     let check1 = recover(signature, message, 1) == '0x' + publicKey.slice(4);
-    let recoveryBit = check0 ? 0 : 1;
+    let recoveryBit = check0 ? 0 : (check1 ? 1 : throwInvalid());
 
-    let normalized = normalize(signature, recoveryBit);
+    // console.log(check0, check1);
+
+    let normalized = normalizeSignature(signature, message, '0x' + publicKey.slice(4));
 
     console.log(normalized);
 }
-*/
 
-// test();
+test();
