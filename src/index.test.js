@@ -2,7 +2,6 @@ const { register, sign, verify, utils } = require('./index.js');
 import { secp256r1 } from '@noble/curves/p256';
 import { expect, test } from "bun:test";
 import { Signature, hexlify } from 'ethers';
-const webauthn = require('@passwordless-id/webauthn');
 
 // Valid returns from WebAuthn API.
 const register_return = JSON.parse('{"username":"username_1","credential":{"id":"YyGacelT6fMR854csLURTauJY_xJXeYeejLHC1KgPZM","publicKey":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEnmrlVmWBynUu27IdSVyzBl_lM-XqP1kfNGEABZ9ZPCjyA-MrlyF5IZv-P8652vevZwpAuqOR05VlE53SnTv4Sw==","algorithm":"ES256"},"authenticatorData":"adrQMLP89rCRgQmDLNkEWixGWKi5vl02t-6DBUPxW11FAAAAAK3OAAI1vMYKZIsLJfHwVQMAIGMhmnHpU-nzEfOeHLC1EU2riWP8SV3mHnoyxwtSoD2TpQECAyYgASFYIJ5q5VZlgcp1LtuyHUlcswZf5TPl6j9ZHzRhAAWfWTwoIlgg8gPjK5cheSGb_j_Oudr3r2cKQLqjkdOVZROd0p07-Es=","clientData":"eyJ0eXBlIjoid2ViYXV0aG4uY3JlYXRlIiwiY2hhbGxlbmdlIjoicmFuZG9tLWNoYWxsZW5nZS1iYXNlNjQtZW5jb2RlYyIsIm9yaWdpbiI6Imh0dHBzOi8vYXV0aG4tc2lnbi1mdWVsZXItZnVlbC1sYWJzLnZlcmNlbC5hcHAiLCJjcm9zc09yaWdpbiI6ZmFsc2V9"}');

@@ -229,6 +229,7 @@ export async function simulate_onchain_verification(
     ) === true;
 }
 
+// Primary Account object.
 export default class Account {
     #id: string = '';
     #username: string = '';
@@ -238,11 +239,13 @@ export default class Account {
         navigator: typeof navigator !== "undefined" ? navigator : navigatorObject,
     };
 
+    // Getters.
     get id(): string { return this.#id; }
     get username(): string { return this.#username; }
     get publicKey(): string { return this.#publicKey; }
     get publicKeyCompact(): string { return '0x' + this.#publicKey.slice(4); }
 
+    // Return the address based upon sha256.
     async address(): Promise<string> {
         return bufferToHex(await sha256(hexToBuffer(this.publicKeyCompact)));
     }
@@ -287,7 +290,7 @@ export default class Account {
             },
             allowCredentials: [{
                 type: 'public-key',
-                transports: ["internal" /*, "hybrid"*/],
+                transports: ["internal"],
             }],
             pubKeyCredParams: [{
                 alg: -7, // P-256
@@ -303,23 +306,31 @@ export default class Account {
             timeout: 60000,
         };
 
+        // Debugging check.
         if(options.debug) console.debug(publicKeyCredentialCreationOptions);
 
+        // Credential creation.
         const credential = await this.#options.navigator.credentials.create({
             publicKey: publicKeyCredentialCreationOptions,
         }) as any;
 
+        // Gather the response.
         const response = credential.response as any;
 
+        // Another debugging check.
         if(options.debug) console.debug(response);
 
+        // Set the ID from base64.
         this.#id = base64ToHex(credential.id);
+
+        // Set the public key.
         this.#publicKey = await cryptoKeyToHex(
             await parseCryptoKey(
                 toBase64url(response.getPublicKey())
             )
         );
 
+        // Return the registration object.
         return {
             id: this.#id,
             publicKey: this.#publicKey,
@@ -392,6 +403,7 @@ export default class Account {
             )
         );
 
+        // Prepair the digest.
         const digest = bufferToHex(await sha256(parseHexString(message)));
 
         // Return the signature data.
@@ -405,8 +417,13 @@ export default class Account {
             signature,
             authOptions,
         };
-     }
+    }
 
+    /**
+     *  The ```verify``` a message and signature aligns with this publicKey.
+     *
+     *  This will enable verification based upon a message and unencoded signature.
+     */
     verify(message:string = "0x", signature:string = "0x"): boolean {
         return secp256r1.verify(
             signature.slice(2),
@@ -418,6 +435,7 @@ export default class Account {
 }
 
 export function recover(signature = '0x', message = '0x', recoveryBit = 0) {
+    // Normalize signature, encode the recovery bit and recover public key.
     const recovered = secp256r1.Signature.fromCompact(
         bufferToHex(
             secp256r1.Signature.fromCompact(
@@ -432,12 +450,13 @@ export function recover(signature = '0x', message = '0x', recoveryBit = 0) {
         message.slice(2),
     );
 
-    // encode y
+    // Pad Y if uneven.
     let y = recovered.y.toString(16);
     if (y.length == 63) {
         y = '0' + y;
     }
 
+    // Return the public key.
     return '0x' + recovered.x.toString(16) + y;
 }
 
@@ -446,10 +465,14 @@ const throwInvalid = () => { throw new Error('invalid bit'); }
 
 // Normalize a signature and encode a recovery bit based upon the public key.
 export function normalizeSignature(signature = '0x', digest = "0x", publicKeyCompact = '0x') {
+    // Check both recovery bits, ensure on of them recovers to the public key.
     let check0 = recover(signature, digest, 0) == publicKeyCompact;
     let check1 = recover(signature, digest, 1) == publicKeyCompact;
+
+    // Build the recovery bit based upon the recovery.
     let recoveryBit = check0 ? 0 : (check1 ? 1 : throwInvalid());
 
+    // Normalize signature.
     const normalizedSignature = bufferToHex(
         secp256r1.Signature.fromCompact(
             signature.slice(2)
@@ -458,30 +481,9 @@ export function normalizeSignature(signature = '0x', digest = "0x", publicKeyCom
         .toCompactRawBytes()
     );
 
+    // Encode recovery bit in signature.
     return encode_signature(
         normalizedSignature,
         recoveryBit,
     );
 }
-
-/*
-function test() {
-    let publicKey = "0x04d04e2f01161f0db9316f28cdcd98a4eeaee15fb4caae39ca549486da5d9008cb117e013dbc1be5d4d1c3c2981ecf15b4fa9d562e6f0d1aa412b84d4cec8f83c8";
-    let message = "0x581101f9a2d61f04c1e820151e76d543914e2d0cfa39bcca8a6e8eed2f942f88";
-    let signature = '0xbcac9c732efccbe80ffa1b26b11161f99540026fe730d2f34aa077554fd4b634aa76c0d7c548c1e44fadbb08b07891767a4d72cbba0d457f46bd45df667955c1';
-
-    const throwInvalid = () => { throw new Error('invalid bit'); }
-
-    let check0 = recover(signature, message, 0) == '0x' + publicKey.slice(4);
-    let check1 = recover(signature, message, 1) == '0x' + publicKey.slice(4);
-    let recoveryBit = check0 ? 0 : (check1 ? 1 : throwInvalid());
-
-    // console.log(check0, check1);
-
-    let normalized = normalizeSignature(signature, message, '0x' + publicKey.slice(4));
-
-    console.log(normalized);
-}
-*/
-
-// test();
