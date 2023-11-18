@@ -1,53 +1,147 @@
 <html>
+    <head>
+        <title>Authn-Sign Demo</title>
+    </head>
+    <body>
+        <script type="module">
+            import Account, {
+                simulate_onchain_verification,
+                hexToBase64, 
+                bufferToHex,
+                sha256,
+                toBuffer,
+                parseHexString,
+                concatHexStrings,
+                encode_signature,
+            } from "./authn-sign.js";
+            import buildPredicate, { setData, types } from './index.fuel.js';
+        
+            // Setup the GraphQL provider.
+            const provider = await types.Provider.create('https://beta-4.fuel.network/graphql');
 
-<head>
-  <title>auth-sign example</title>
-</head>
+            // Account 1.
+            const username = "account_1";
 
-<body>
-  <script type="module">
-    import authn from "./authn-sign.js";
-    const utils = authn.utils;
+            // Get authn account.
+            const authnAccount = localStorage.getItem("authn_account");
 
-    (async () => {
-      // Register your account.
-      const account = await authn.register('username_1');
+            // Account.
+            const account = authnAccount ? new Account(...JSON.parse(authnAccount)) : new Account();
+            let details = {};
+            let address = {};
+            let predicate = null;
 
-      // Write to result.
-      document.querySelector('#result').innerHTML += "<h3>Account:</h3> <pre><code>" + JSON.stringify(account, null, 2) + '</pre></code>';
+            // Set the challenge (this should be the tx ID in the future.).
+            const challenge = '0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 
-      // Some transaction hash.
-      const transaction_hash = '0xb4f62ae3e337421868782a88ff7d81a8bf44ef6722dfcd0c70d08a0adc25663d';
+            // Refresh the account.
+            await refresh();
 
-      // Sign the transaction hash.
-      const signature = await authn.sign(account, transaction_hash);
+            // Refresh account details from storage (if any).
+            async function refresh() {
+                if (!account.id) {
+                    return;
+                }
 
-      // Write to result.
-      document.querySelector('#result').innerHTML += "<h3>Signature:</h3> <pre><code>" + JSON.stringify(signature, null, 2) + '</pre></code>';
+                // Set details.
+                details = {
+                    publicKey: account.publicKeyCompact,
+                    address: await account.address(),
+                    id: account.id,
+                };
 
-      // This would happen on chain.
-      const signedData = signature.clientData.preChallenge
-        + utils.hexToBase64(transaction_hash).slice(0, -1)
-        + signature.clientData.postChallenge;
-      const clientDataHash = utils.bufferToHex(await utils.sha256(utils.toBuffer(signedData)));
-      const message = utils.concatHexStrings(signature.authenticatorData, clientDataHash);
-      // const messageHash = utils.bufferToHex(await utils.sha256(message));
+                // Store data.
+                localStorage.setItem("authn_account", JSON.stringify([
+                    username,
+                    account.id,
+                    account.publicKey,
+                ]));
 
-      // This P-256 verficiation would also happen on chain.
-      const is_verified = await authn.verify({
-        publicKey: account.publicKey,
-        message: utils.bufferToHex(message),
-        signature: signature.signature,
-      });
+                // Build the predicate.
+                predicate = buildPredicate(provider, details.address);
 
-      // Write to result.
-      document.querySelector('#result').innerHTML += "<h3>Verified as " + (is_verified ? 'true' : 'false') + "</h2>";
+                // Get the Fuel address.
+                address = {
+                    fuel: predicate.address,
+                    hex: predicate.address.toHexString(),
+                };
 
-    })();
-  </script>
-  <div id="result">
+                // Write to result.
+                document.querySelector('#result').innerHTML += "<h3>Key Information:</h3> <pre><code>" + JSON.stringify(details, null, 2) + '</code></pre>';
 
-  </div>
-</body>
+                // Write to result.
+                document.querySelector('#result').innerHTML += "<h3>Fuel Account:</h3> <pre><code>" + JSON.stringify(address, null, 2) + '</code></pre>';
+            }
 
+            // Register.
+            document.querySelector('#register').addEventListener('click', async () => {
+                await account.register(username);
+
+                await refresh();
+            });
+
+            document.querySelector('#faucet').addEventListener('click', async () => {
+                if (address.fuel) {
+                    window.open("https://faucet-beta-4.fuel.network/?address=" + address.fuel);
+                }
+            });
+
+            document.querySelector('#sign').addEventListener('click', async () => {
+                // Sign the challenge.
+                const signature = await account.sign(challenge);
+
+                // Write to result.
+                document.querySelector('#result').innerHTML += "<h3>Signature:</h3> <pre><code>" + JSON.stringify(signature, null, 2) + '</code></pre>';
+
+                // Check EIP-2098.
+                const check_eip2098 = await simulate_onchain_verification(
+                    account.publicKey,
+                    account.publicKeyCompact,
+                    details.address,
+                    signature.authenticatorData,
+                    signature.clientData.preChallengeEncoded,
+                    challenge,
+                    signature.clientData.postChallengeEncoded,
+                    signature.normalized,
+                );
+
+                // Verify check.
+                const check_normal = account.verify(signature.message, signature.signature);
+
+                // Write to result.
+                document.querySelector('#result').innerHTML += `<h3>Signature:</h3> <pre><code>Verify on EIP-2098 ${check_eip2098} and P-256 ${check_normal}</code></pre>`;
+
+                // Set the predicate data.
+                setData(
+                    predicate,
+                    signature.normalized,
+                    signature.authenticatorData,
+                    challenge,
+                    signature.clientData.preChallengeEncoded,
+                    signature.clientData.postChallengeEncoded,
+                );
+
+                // Write to result.
+                document.querySelector('#result').innerHTML += `<h3>Transact:</h3> <pre><code>Attempting to send 500 units of Ether to yourself.</code></pre>`;
+
+                // Prepare the transaction.
+                const tx = await predicate
+                    .transfer(predicate.address, 500, types.BaseAssetId, {
+                        gasPrice: 1,
+                        gasLimit: 3_500_000,
+                    });
+
+                // Log it.
+                console.log(tx);
+
+                // Write to result.
+                document.querySelector('#result').innerHTML += `<h3>Transact:</h3> <pre><code>${JSON.stringify(await tx.waitForResult(), null, 2)}</code></pre>`;
+            });
+        </script>
+        <button id="register">Register</button>
+        <button id="faucet">Faucet</button>
+        <button id="sign">Sign</button>
+
+        <div id="result"></div>
+    </body>
 </html>

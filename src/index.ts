@@ -156,12 +156,12 @@ export function decode_signature(signatureCompact:string = '0x'): any {
 }
 
 // Remove base64 padding.
-function removeBase64Padding(data:string): string {
+export function removeBase64Padding(data:string): string {
     return data.substring(0, data.indexOf("=", data.length - 2));
 }
 
 // ClientData to JSON.
-function clientDataToJSON(clientData:string):any {
+export function clientDataToJSON(clientData:string):any {
     const utf8Decoder = new TextDecoder('utf-8');
     const decodedClientData = utf8Decoder.decode(
         parseBase64url(clientData),
@@ -188,19 +188,6 @@ function clientDataToJSON(clientData:string):any {
         ...json_object,
     };
 }
-
-/*
-fn main(signature:B512, authid:Bytes, txid:b256, pre:Bytes, post:Bytes) -> bool {
-    // Compute the digest.
-    let digest = webauthn_hash(authid, pre, Bytes::from(txid), post);
-
-    // Derive the public key.
-    let public_key = ec_recover_r1(signature, digest).unwrap();
-
-    // Derived address == the Address.
-    sha256(public_key.into()) == ADDRESS // && txid == tx_id()
-}
-*/
 
 // Simulate what its like for onchain verification.
 export async function simulate_onchain_verification(
@@ -420,7 +407,7 @@ export default class Account {
         };
      }
 
-     verify(message:string = "0x", signature:string = "0x"): boolean {
+    verify(message:string = "0x", signature:string = "0x"): boolean {
         return secp256r1.verify(
             signature.slice(2),
             message.slice(2),
@@ -430,7 +417,7 @@ export default class Account {
     }
 }
 
-function recover(signature = '0x', message = '0x', recoveryBit = 0) {
+export function recover(signature = '0x', message = '0x', recoveryBit = 0) {
     const recovered = secp256r1.Signature.fromCompact(
         bufferToHex(
             secp256r1.Signature.fromCompact(
@@ -458,7 +445,7 @@ function recover(signature = '0x', message = '0x', recoveryBit = 0) {
 const throwInvalid = () => { throw new Error('invalid bit'); }
 
 // Normalize a signature and encode a recovery bit based upon the public key.
-function normalizeSignature(signature = '0x', digest = "0x", publicKeyCompact = '0x') {
+export function normalizeSignature(signature = '0x', digest = "0x", publicKeyCompact = '0x') {
     let check0 = recover(signature, digest, 0) == publicKeyCompact;
     let check1 = recover(signature, digest, 1) == publicKeyCompact;
     let recoveryBit = check0 ? 0 : (check1 ? 1 : throwInvalid());
@@ -477,6 +464,7 @@ function normalizeSignature(signature = '0x', digest = "0x", publicKeyCompact = 
     );
 }
 
+/*
 function test() {
     let publicKey = "0x04d04e2f01161f0db9316f28cdcd98a4eeaee15fb4caae39ca549486da5d9008cb117e013dbc1be5d4d1c3c2981ecf15b4fa9d562e6f0d1aa412b84d4cec8f83c8";
     let message = "0x581101f9a2d61f04c1e820151e76d543914e2d0cfa39bcca8a6e8eed2f942f88";
@@ -494,5 +482,6 @@ function test() {
 
     console.log(normalized);
 }
+*/
 
-test();
+// test();

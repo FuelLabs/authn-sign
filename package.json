@@ -11,12 +11,13 @@
   "module": "src/index.js",
   "type": "module",
   "scripts": {
-    "copy_to_example": "cp build/authn-sign.js example/authn-sign.js && cp build/authn-sign.js navigator/authn-sign.js && cp build/index.fuel.js navigator/index.fuel.js",
+    "copy_to_example": "cp build/authn-sign.js example/authn-sign.js && cp build/index.fuel.js example/index.fuel.js",
     "build:fuel": "bun build ./src/index.fuel.ts --outdir ./build/ --entry-naming [dir]/index.fuel.[ext] --minify --target browser",
-    "build:min": "bun build ./src/index.js --outdir ./build/ --entry-naming [dir]/authn-sign.min.[ext] --target browser --minify --sourcemap=external",
-    "build:esm": "bun build ./src/index.js --outdir ./build/ --entry-naming [dir]/authn-sign.esm.[ext] --target browser --format esm --sourcemap=external",
+    "build:min": "bun build ./src/index.ts --outdir ./build/ --entry-naming [dir]/authn-sign.min.[ext] --target browser --minify --sourcemap=external",
+    "build:esm": "bun build ./src/index.ts --outdir ./build/ --entry-naming [dir]/authn-sign.esm.[ext] --target browser --format esm --sourcemap=external",
     "build:unminified": "bun build ./src/index.ts --outdir ./build/ --entry-naming [dir]/authn-sign.[ext] --target browser --sourcemap=external",
     "build": "bun run build:min && bun run build:unminified && npm run build:esm && npm run build:fuel && bun run copy_to_example",
+    "example:deploy": "bun run build && vercel example --prod",
     "prepublishOnly": "bun run build && cp -rf build umd",
     "postpublish": "rm -rf umd"
   },

@@ -3,7 +3,9 @@ build
 old
 example/authn-sign.js
 example/.gitignore
+example/index.fuel.js
 /fuel
+/navigator
 
 # Logs
 logs
