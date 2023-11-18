@@ -40,7 +40,6 @@
   "devDependencies": {
     "bun-types": "latest",
     "ethers": "^6.8.1",
-    "@passwordless-id/webauthn": "^1.3.0",
     "fuels": "^0.67.0"
   },
   "peerDependencies": {
