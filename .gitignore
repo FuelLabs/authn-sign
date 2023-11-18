@@ -5,6 +5,7 @@ example/.gitignore
 /fuel
 /navigator
 src/index.js
+test.html
 
 # Logs
 logs

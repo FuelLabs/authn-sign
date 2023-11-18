@@ -23,7 +23,7 @@ npm install --save authn-sign
 
 ### CDN
 ```
-<script src="https://unpkg.com/authn-sign@latest/build/authn-sign.min.js"></script>
+<script type="module" src="https://unpkg.com/authn-sign@latest/build/authn-sign.min.js"></script>
 ```
 
 ### As a Module
