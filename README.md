@@ -28,7 +28,7 @@ npm install --save authn-sign
 
 ### As a Module
 ```
-import authn from "https://unpkg.com/authn-sign@latest/build/authn-sign.min.js";
+import Account from "https://unpkg.com/authn-sign@latest/build/authn-sign.min.js";
 ```
 
 ## Build
