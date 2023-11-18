@@ -3,7 +3,7 @@ A simplified browser interface for WebAuthn focused on secp256r1 (P-256) signing
 
 ## Features
 - `register`, `sign` (i.e. authenticate) and `recover` from WebAuthn.
-- Extremly light with minimal dependancies.
+- Extremly light with minimal dependancies (just `@noble/curves`).
 - Supports compressed and non compressed public keys.
 - Supports EIP-2098 encoded and non-encoded signatures.
 - Designed for blockchain applications which typically use *prefixed hex data* encoding.
@@ -23,12 +23,12 @@ npm install --save authn-sign
 
 ### CDN
 ```
-<script src="https://unpkg.com/authn-sign@latest/umd/authn-sign.min.js"></script>
+<script src="https://unpkg.com/authn-sign@latest/build/authn-sign.min.js"></script>
 ```
 
 ### As a Module
 ```
-import authn from "https://unpkg.com/authn-sign@latest/umd/authn-sign.min.js";
+import authn from "https://unpkg.com/authn-sign@latest/build/authn-sign.min.js";
 ```
 
 ## Build
@@ -116,6 +116,7 @@ authn-sign.js        63.70 KB
 
 ## Todo
 - Nits and cleanup for encoding.
+- More protective measures against bad values (assertHex etc.).
 - Better typing structures (e.g. PublicKey, Signature, CreationOption etc.).
 - Make optional the dependancy on node/browser crypto module.
 
