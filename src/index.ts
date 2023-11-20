@@ -228,6 +228,9 @@ export async function simulate_onchain_verification(
     ) === true;
 }
 
+// This is used for getting accounts with minimal information.
+const defaultRegistrationChallenge = '0xd71c99459c75101576e1019080db5deef5dbf0669fc8421faf17ff883977ebcb';
+
 // Primary Account object.
 export default class Account {
     #id: string = '';
@@ -262,6 +265,44 @@ export default class Account {
     }
 
     /**
+     *  The ```get``` an existing signing account for this website.
+     *
+     *  This is the primary account register function for WebAuthn.
+     */
+    async get(options?:any): Promise<any> {
+        // Setup default options.
+        options = options || {};
+
+        // Get credential optioons.
+        const getCredentialOptions = options.getOptions || {
+            publicKey: {
+                challenge: hexToBuffer(options.challenge || defaultRegistrationChallenge),
+                rpId: this.#options.window.location.hostname,
+                userVerification: "required",
+            },
+        };
+
+        // Credential.
+        const credential = await this.#options.navigator.credentials.get(getCredentialOptions);
+
+        // Gather the response.
+        const response = credential.response as any;
+
+        // Another debugging check.
+        if(options.debug) console.debug(response);
+
+        // Set the ID from base64.
+        this.#id = base64ToHex(credential.id);
+
+        // Return all the data.
+        return {
+            id: this.#id,
+            publicKey: this.#publicKey,
+            ...response,
+        };
+    }
+
+    /**
      *  The ```register``` method for signature.
      *
      *  This is the primary account register function for WebAuthn.
@@ -275,7 +316,7 @@ export default class Account {
 
         // PublicKeyCredentialCreationOptions.
         const publicKeyCredentialCreationOptions = options.creationOptions || {
-            challenge: toBuffer(options.challenge || 'random-challenge-base64-encoded'),
+            challenge: toBuffer(options.challenge || defaultRegistrationChallenge),
             rp: {
                 id: this.#options.window.location.hostname,
                 name: this.#options.window.location.hostname,
@@ -301,7 +342,7 @@ export default class Account {
                 residentKey: "preferred",
                 requireResidentKey: false,
             },
-            attestation: "none",
+            attestation: options.attestation ? options.attestation : "none",
             timeout: 60000,
         };
 

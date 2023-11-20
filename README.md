@@ -175,6 +175,7 @@ export declare function normalizeSignature(signature?: string, digest?: string, 
 - More protective measures against bad values (assertHex etc.).
 - Better typing structures (e.g. PublicKey, Signature, CreationOption etc.).
 - Make optional the dependancy on node/browser crypto module.
+- Final API is still being decided so leave your feedback as an issue!
 
 ## Licence
 ```

@@ -1,9 +1,10 @@
-import { Predicate, Provider, arrayify, FUEL_NETWORK_URL, BaseAssetId } from 'fuels';
+import { Predicate, Provider, arrayify, FUEL_NETWORK_URL, BaseAssetId, Address } from 'fuels';
 import { FuelAbi__factory } from './types/index';
 
 export const types = {
     Provider,
     BaseAssetId,
+    Address,
 };
 
 export default function buildPredicate(provider:Provider, address:string) {

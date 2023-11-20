@@ -1971,6 +1971,7 @@ var navigatorObject = {
     }
   }
 };
+var defaultRegistrationChallenge = "0xd71c99459c75101576e1019080db5deef5dbf0669fc8421faf17ff883977ebcb";
 
 class Account {
   #id = "";
@@ -2001,11 +2002,31 @@ class Account {
     this.#publicKey = pulicKey;
     this.#options = options || this.#options;
   }
+  async get(options) {
+    options = options || {};
+    const getCredentialOptions = options.getOptions || {
+      publicKey: {
+        challenge: hexToBuffer(options.challenge || defaultRegistrationChallenge),
+        rpId: this.#options.window.location.hostname,
+        userVerification: "required"
+      }
+    };
+    const credential = await this.#options.navigator.credentials.get(getCredentialOptions);
+    const response = credential.response;
+    if (options.debug)
+      console.debug(response);
+    this.#id = base64ToHex(credential.id);
+    return {
+      id: this.#id,
+      publicKey: this.#publicKey,
+      ...response
+    };
+  }
   async register(username, options) {
     this.#username = username;
     options = options || {};
     const publicKeyCredentialCreationOptions = options.creationOptions || {
-      challenge: toBuffer(options.challenge || "random-challenge-base64-encoded"),
+      challenge: toBuffer(options.challenge || defaultRegistrationChallenge),
       rp: {
         id: this.#options.window.location.hostname,
         name: this.#options.window.location.hostname
@@ -2029,7 +2050,7 @@ class Account {
         residentKey: "preferred",
         requireResidentKey: false
       },
-      attestation: "none",
+      attestation: options.attestation ? options.attestation : "none",
       timeout: 60000
     };
     if (options.debug)
@@ -2123,4 +2144,4 @@ export {
   base64ToHex
 };
 
-//# debugId=B59C928F82B9D00664756e2164756e21
+//# debugId=3F48E9588A33279064756e2164756e21

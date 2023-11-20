@@ -10,6 +10,7 @@
   "author": "Fuel Labs Inc. <contact@fuel.sh> (https://fuel.network/)",
   "main": "build/authn-sign.js",
   "module": "build/authn-sign.mjs",
+  "sideEffects": false,
   "types": "build/authn-sign.d.ts",
   "engines": {
     "node": "^18.14.1"
@@ -29,7 +30,7 @@
     "move_types": "mv build/index.d.ts build/authn-sign.d.ts",
     "copy_to_example": "cp build/authn-sign.js example/authn-sign.js",
     "build:types": "tsc src/index.ts --declaration --allowJs --emitDeclarationOnly --outDir build --target es2021",
-    "build:mjs": "bun build ./src/index.ts --outdir ./build/ --entry-naming [dir]/authn-sign.mjs --target node --minify --sourcemap=external",
+    "build:mjs": "bun build ./src/index.ts --outdir ./build/ --entry-naming [dir]/authn-sign.mjs --target node --sourcemap=external",
     "build:min": "bun build ./src/index.ts --outdir ./build/ --entry-naming [dir]/authn-sign.min.[ext] --target browser --minify --sourcemap=external",
     "build:esm": "bun build ./src/index.ts --outdir ./build/ --entry-naming [dir]/authn-sign.esm.[ext] --target browser --format esm --sourcemap=external",
     "build:unminified": "bun build ./src/index.ts --outdir ./build/ --entry-naming [dir]/authn-sign.[ext] --target browser --sourcemap=external",

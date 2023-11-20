@@ -2,6 +2,7 @@
   "name": "authn-predicate",
   "module": "src/index.ts",
   "type": "module",
+  "sideEffects": false,
   "scripts": {
     "copy_to_example": "cp build/authn-predicate.min.js ../authn-predicate.min.js",
     "typegen": "pnpm run fuels typegen -i ./out/debug/*-abi.json -o ./src/types --predicate",
