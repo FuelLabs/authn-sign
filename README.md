@@ -79,10 +79,10 @@ const account = new Account(/* username, id, publicKey */);
 ```
 
 ### Example Code:
-[./example/simple.html](./example/simple.html)
+[./example/index.html](./example/index.html)
 
 ### Hosted Example:
-[authn-sign.vercel.app/simple.html](https://authn-sign.vercel.app/simple.html)
+[authn-sign.vercel.app/](https://authn-sign.vercel.app)
 
 ### Wallet Example:
 [authn-sign.vercel.app/wallet.html](https://authn-sign.vercel.app/wallet.html)
