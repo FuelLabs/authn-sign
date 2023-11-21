@@ -17,14 +17,21 @@ A note that WebAuthn local testing requires HTTPS and a `localhost` non IP addre
 Try it now: [authn-sign.vercel.app](https://authn-sign.vercel.app)
 
 ## Install
-```
+```sh
 npm install --save authn-sign
 ```
 
 ### CDN (via Module)
-```
+```js
 import Account from "https://unpkg.com/authn-sign@latest/build/authn-sign.min.js";
 ```
+
+### CDN (via UMD)
+```html
+<script type="text/javascript" src="https://unpkg.com/authn-sign@latest/build/authn-sign.umd.js"></script>
+```
+
+Export available at `window.authnSign`.
 
 ## Build
 ```sh
@@ -76,6 +83,9 @@ const account = new Account(/* username, id, publicKey */);
 
 ### Hosted Example:
 [authn-sign.vercel.app/simple.html](https://authn-sign.vercel.app/simple.html)
+
+### Wallet Example:
+[authn-sign.vercel.app/pretty.html](https://authn-sign.vercel.app/pretty.html)
 
 ## Blockchain Verification Check (in NodeJS)
 ```js

@@ -285,20 +285,10 @@ export default class Account {
         // Credential.
         const credential = await this.#options.navigator.credentials.get(getCredentialOptions);
 
-        // Gather the response.
-        const response = credential.response as any;
-
-        // Another debugging check.
-        if(options.debug) console.debug(response);
-
-        // Set the ID from base64.
-        this.#id = base64ToHex(credential.id);
-
-        // Return all the data.
+        // Return ID.
         return {
-            id: this.#id,
-            publicKey: this.#publicKey,
-            ...response,
+            id: (credential || {}).id,
+            credential,
         };
     }
 

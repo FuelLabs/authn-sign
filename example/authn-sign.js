@@ -2012,14 +2012,9 @@ class Account {
       }
     };
     const credential = await this.#options.navigator.credentials.get(getCredentialOptions);
-    const response = credential.response;
-    if (options.debug)
-      console.debug(response);
-    this.#id = base64ToHex(credential.id);
     return {
-      id: this.#id,
-      publicKey: this.#publicKey,
-      ...response
+      id: (credential || {}).id,
+      credential
     };
   }
   async register(username, options) {
@@ -2144,4 +2139,4 @@ export {
   base64ToHex
 };
 
-//# debugId=3F48E9588A33279064756e2164756e21
+//# debugId=FDC6F5EE8352EC3664756e2164756e21
