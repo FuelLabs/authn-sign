@@ -79,12 +79,13 @@
                 // Create an account.
                 async function createAccount() {
                     // Handle already existing.
-                    const test = await state.account.get();
+                    /*const test = await state.account.get();
 
                     // If there is an ID, then error.
                     if (test.id) {
                         throw new Error('An account already exists on another browser.');
                     }
+                    */
 
                     // Register an account.
                     await state.account.register(username);
@@ -655,7 +656,7 @@
                         <li>Sign transactions using FaceID or TouchID</li>
                     </ul>
 
-                    <p>Create a wallet with WebAuthn now!</p>
+                    <p>Ensure Settings > Apple ID > iCloud -> Passwords and Keychain -> Sync this iPhone is on.</p>
 
                     <nav>
                         <button data-action="createWallet">Create Wallet</button>
@@ -689,9 +690,6 @@
 
                 <article id="page-scanner">
                     <video id="scanner" data-page="balance"></video>
-                    <nav>
-                        <button data-page="balance">Back</button>
-                    </nav>
                 </article>
 
                 <article id="page-send">
