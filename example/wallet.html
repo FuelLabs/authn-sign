@@ -43,7 +43,6 @@
 
                 // Application state.
                 let state = {
-                    current: 0,
                     loaded: authnAccount ? true : false,
                     account: authnAccount ? new Account(...JSON.parse(authnAccount)) : new Account(),
                     predicate: null,
@@ -58,7 +57,6 @@
                     state.account = new Account();
                     state.loaded = false;
                     state.predicate = null;
-                    state.current = 0;
                     state.null = 0;
                     localStorage.removeItem("authn_account")
                 }
@@ -85,7 +83,7 @@
 
                     // If there is an ID, then error.
                     if (test.id) {
-                        return setError('An account already exists on another browser.');
+                        throw new Error('An account already exists on another browser.');
                     }
 
                     // Register an account.
@@ -98,9 +96,9 @@
                 // Set an error.
                 function setResult(error) {
                     select('#result').style.visibility = 'visible';
-                    select('#result-message').innerHTML = typeof error == 'string'
+                    select('#result-message').innerHTML = typeof error === "string"
                         ? error
-                        : JSON.stringify(error, null, 2);
+                        : error.message;
                 }
 
                 // Close error.
@@ -237,7 +235,7 @@
                         await fn(...args);
                     } catch (error) {
                         setResult(error);
-                        console.error(error);
+
                         if (!opts.noThrow) {
                             throw new Error(error.message);
                         }
@@ -279,6 +277,7 @@
 
                 // Add button actions.
                 Array.from(document.querySelectorAll('button'))
+                .concat(Array.from(document.querySelectorAll('video')))
                 .concat(Array.from(document.querySelectorAll('svg')))
                 .forEach(element => {
                     element.addEventListener('click', async () => {
@@ -303,6 +302,11 @@
                         }
 
                         if (element.dataset.action == 'reset') {
+                            // Are you sure?
+                            if (!confirm('Are you sure you want to erase this wallet?')) {
+                                return;
+                            }
+
                             // Reset the state.
                             setEmpty();
 
@@ -684,7 +688,7 @@
                 </article>
 
                 <article id="page-scanner">
-                    <video id="scanner"></video>
+                    <video id="scanner" data-page="balance"></video>
                     <nav>
                         <button data-page="balance">Back</button>
                     </nav>

@@ -85,7 +85,7 @@ const account = new Account(/* username, id, publicKey */);
 [authn-sign.vercel.app/simple.html](https://authn-sign.vercel.app/simple.html)
 
 ### Wallet Example:
-[authn-sign.vercel.app/pretty.html](https://authn-sign.vercel.app/pretty.html)
+[authn-sign.vercel.app/wallet.html](https://authn-sign.vercel.app/wallet.html)
 
 ## Blockchain Verification Check (in NodeJS)
 ```js
@@ -186,6 +186,7 @@ export declare function normalizeSignature(signature?: string, digest?: string, 
 - Better typing structures (e.g. PublicKey, Signature, CreationOption etc.).
 - Make optional the dependancy on node/browser crypto module.
 - Final API is still being decided so leave your feedback as an issue!
+- Better account recovery from credentials.get.
 
 ## Licence
 ```
