@@ -14,7 +14,7 @@ A simplified browser interface for WebAuthn focused on secp256r1 (P-256) signing
 
 A note that WebAuthn local testing requires HTTPS and a `localhost` non IP address.
 
-Try it now: [authn-sign.vercel.app](https://authn-sign.vercel.app)
+Try it now: [authn-sign.vercel.app](https://authn-sign.vercel.app) or a full Fuel wallet [authn-sign.vercel.app/wallet.html](https://authn-sign.vercel.app/wallet.html).
 
 ## Install
 ```sh
