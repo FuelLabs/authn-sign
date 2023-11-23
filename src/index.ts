@@ -28,7 +28,7 @@ export async function sha256(buffer: ArrayBuffer | Uint8Array) :Promise<ArrayBuf
     return await crypto.subtle.digest('SHA-256', buffer);
 }
 
-export function concatenateBuffers(buffer1 :ArrayBuffer, buffer2  :ArrayBuffer): Uint8Array {
+export function concatenateBuffers(buffer1 :ArrayBuffer | Uint8Array, buffer2  :ArrayBuffer | Uint8Array): Uint8Array {
     var tmp = new Uint8Array(buffer1.byteLength + buffer2.byteLength);
     tmp.set(new Uint8Array(buffer1), 0);
     tmp.set(new Uint8Array(buffer2), buffer1.byteLength);

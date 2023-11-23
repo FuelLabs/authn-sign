@@ -18,6 +18,7 @@
                 toBuffer,
                 parseHexString,
                 concatHexStrings,
+                concatenateBuffers,
                 encode_signature,
             } from "./authn-sign.js";
             import buildPredicate, { setData, types } from './authn-predicate.min.js';
@@ -30,10 +31,18 @@
             (async () => {
 
                 // Application pages.
-                let pages = ['create', 'balance', 'send', 'scanner', 'receive', 'success'];
+                let pages = ['create', 'balance', 'send', 'scanner', 'loading', 'receive', 'success'];
 
-                // Account 1.
-                const username = "account_1";
+                // Is localhost.
+                const isLocalhost = window.location.hostname.includes('192');
+
+                // Build a unique account username to ensure different browsers don't override the same account.
+                const username = "authn_account-" + (isLocalhost ? '' : bufferToHex(await sha256(
+                    concatenateBuffers(
+                        toBuffer(window.navigator.userAgent),
+                        crypto.getRandomValues(new Uint8Array(32))
+                    )
+                )));
 
                 // Set the challenge (this should be the tx ID in the future.).
                 const challenge = '0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
@@ -67,7 +76,7 @@
                     open('balance');
                 } else {
                     // Create an account.
-                    open('create');
+                    open(isLocalhost ? 'balance' : 'create'); // create
                 }
 
                 // Setup the GraphQL provider.
@@ -78,15 +87,6 @@
 
                 // Create an account.
                 async function createAccount() {
-                    // Handle already existing.
-                    /*const test = await state.account.get();
-
-                    // If there is an ID, then error.
-                    if (test.id) {
-                        throw new Error('An account already exists on another browser.');
-                    }
-                    */
-
                     // Register an account.
                     await state.account.register(username);
 
@@ -117,6 +117,9 @@
                     });
 
                     select('#page-' + pageName).style.display = 'flex';
+
+                    // Push new state.
+                    window.history.pushState(pageName, 'Title', '/wallet.html?page=' + pageName);
                 }
 
                 // Set the app balance.
@@ -187,6 +190,9 @@
                         : new types.Address(select('#send-recipient').value.trim());
                     const value = ethers.utils.parseUnits(select('#send-value').value, 9)
                         .toHexString();
+
+                    // Loading screen.
+                    open('loading');
 
                     // Prepare the transaction.
                     const tx = await state.predicate
@@ -375,6 +381,10 @@
             })();
         </script>
         <style type="text/css">
+            :root {
+                --blue: #6b70f5;
+            }
+
             html, body {
                 margin: 0;
                 height: 100%;
@@ -441,14 +451,15 @@
                 flex: 1;
                 flex-grow: 1;
                 min-height: 3rem;
-                background-color: #5983FC;
+                font-weight: 400;
+                background-color: var(--blue);
                 border: none;
                 cursor: pointer;
                 max-height: 3rem;
             }
 
             a {
-                color: #5983FC;
+                color: var(--blue);
                 text-decoration: none;
             }
 
@@ -468,7 +479,7 @@
             }
 
             input[type=text], input[type=number] {
-                border: 1px solid #5983FC;
+                border: 1px solid var(--blue);
                 padding: .7rem;
                 min-height: 1.4rem;
                 color: black;
@@ -503,7 +514,7 @@
                 width: 24px;
                 background-color: transparent;
                 border-radius: 8px;
-                border: 1px solid #5983FC;
+                border: 1px solid var(--blue);
                 transform: rotate(-90deg);
                 transition: all 0.3s;
                 cursor: pointer;
@@ -515,11 +526,11 @@
             }
 
             label input:checked ~ .overlay {
-                background-color: #5983FC;
+                background-color: var(--blue);
                 border-radius: 8px;
                 transform: rotate(0deg);
                 opacity: 1;
-                border: 2px solid #5983FC;
+                border: 2px solid var(--blue);
             }
 
             label input:checked ~ .overlay .icon {
@@ -531,18 +542,10 @@
                 font-size: 1.04rem;
             }
 
-            /*
-            #293556
-            #2E4583
-            #3E60C1
-            #5983FC
-
-            #BE37F
-            */
-
             hgroup {
                 position: absolute;
                 box-sizing: border-box;
+                z-index: 10000;
                 gap: 10px;
                 display: flex;
                 font-size: 1rem;
@@ -580,11 +583,28 @@
                 max-width: 430px;
             }
 
-            #result {
-            }
-
             #faucet {
                 display: none;
+            }
+
+            #address:hover, #address:active, #address:focus {
+                color: var(--blue);
+                transition: color .2s;
+            }
+
+            #address:active:after {
+                content: " 📋";
+            }
+
+            #page-loading {
+                justify-content: center;
+            }
+
+            .scan-icon {
+                position: absolute;
+                top: 1.4rem;
+                left: 1.4rem;
+                cursor: pointer;
             }
 
             .checkmark__circle {
@@ -592,7 +612,7 @@
                 stroke-dashoffset: 166;
                 stroke-width: 2;
                 stroke-miterlimit: 10;
-                stroke: #5983FC;
+                stroke: var(--blue);
                 fill: none;
                 animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
             }
@@ -606,7 +626,7 @@
                 stroke: #fff;
                 stroke-miterlimit: 10;
                 margin: 10% auto;
-                box-shadow: inset 0px 0px 0px #5983FC;
+                box-shadow: inset 0px 0px 0px var(--blue);
                 animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both;
             }
 
@@ -616,7 +636,32 @@
                 stroke-dashoffset: 48;
                 animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
             }
+            
+            article:not(#page-success) > * {
+                animation: open .23s ease-out;
+            }
+            article:not(#page-success) :nth-child(1) { animation-duration: .0s; }
+            article:not(#page-success) :nth-child(2) { animation-duration: .1s; }
+            article:not(#page-success) :nth-child(3) { animation-duration: .15s; }
+            article:not(#page-success) :nth-child(4) { animation-duration: .17s; }
+            article:not(#page-success) :nth-child(5) { animation-duration: .19s; }
+            article:not(#page-success) :nth-child(6) { animation-duration: .23s; }
 
+            @keyframes open {
+                0% {
+                    opacity: 0%;
+                    margin-bottom: -1.4rem;
+                }
+                100% {
+                    opacity: 100%;
+                    margin-bottom: 0px;
+                }
+            }
+            @keyframes click {
+                100% {
+                    opacity: 100%;
+                }
+            }
             @keyframes stroke {
                 100% {
                     stroke-dashoffset: 0;
@@ -632,7 +677,7 @@
             }
             @keyframes fill {
                 100% {
-                    box-shadow: inset 0px 0px 0px 300px #5983FC;
+                    box-shadow: inset 0px 0px 0px 300px var(--blue);
                 }
             }
         </style>
@@ -640,7 +685,7 @@
         <div id="wrapper">
             <div id="container">
                 <hgroup id="result">
-                    <span id="result-message">Use Check Mark - Success by Travis Gregory - Lottie Animations on your websites, portfolio, blogs, social media, presentations, videos, etc...</span>
+                    <span id="result-message"></span>
                     <svg data-action="close" width="30px" height="30px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M10.0303 8.96965C9.73741 8.67676 9.26253 8.67676 8.96964 8.96965C8.67675 9.26255 8.67675 9.73742 8.96964 10.0303L10.9393 12L8.96966 13.9697C8.67677 14.2625 8.67677 14.7374 8.96966 15.0303C9.26255 15.3232 9.73743 15.3232 10.0303 15.0303L12 13.0607L13.9696 15.0303C14.2625 15.3232 14.7374 15.3232 15.0303 15.0303C15.3232 14.7374 15.3232 14.2625 15.0303 13.9696L13.0606 12L15.0303 10.0303C15.3232 9.73744 15.3232 9.26257 15.0303 8.96968C14.7374 8.67678 14.2625 8.67678 13.9696 8.96968L12 10.9393L10.0303 8.96965Z" fill="#1C274C"/>
                         <path fill-rule="evenodd" clip-rule="evenodd" d="M12 1.25C6.06294 1.25 1.25 6.06294 1.25 12C1.25 17.9371 6.06294 22.75 12 22.75C17.9371 22.75 22.75 17.9371 22.75 12C22.75 6.06294 17.9371 1.25 12 1.25ZM2.75 12C2.75 6.89137 6.89137 2.75 12 2.75C17.1086 2.75 21.25 6.89137 21.25 12C21.25 17.1086 17.1086 21.25 12 21.25C6.89137 21.25 2.75 17.1086 2.75 12Z" fill="#1C274C"/>
@@ -664,12 +709,19 @@
                 </article>
 
                 <article id="page-balance">
+                    <svg class="scan-icon" data-page="scanner" xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <g transform="scale(1.6)">
+                            <path d="M3 7V5a2 2 0 012-2h2"/>
+                            <path d="M17 3h2a2 2 0 012 2v2"/>
+                            <path d="M21 17v2a2 2 0 01-2 2h-2"/>
+                            <path d="M7 21H5a2 2 0 01-2-2v-2"/>
+                        </g>
+                    </svg>
                     <br />
                     <h1><span id="balance">0.00</span> ETH</h2>
                     <a id="faucet" href="https://faucet-beta-4.fuel.network/?address=" target="_blank">Faucet Ether</a>
                     <section>
                         <button data-action="reset">Reset</button>
-                        <button data-page="scanner">Scanner</button>
                     </section>
                     <nav>
                         <button data-page="receive">Receive</button>
@@ -690,6 +742,10 @@
 
                 <article id="page-scanner">
                     <video id="scanner" data-page="balance"></video>
+                </article>
+
+                <article id="page-loading">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><circle fill="none" stroke-opacity="1" stroke="#6B70F5" stroke-width=".5" cx="100" cy="100" r="0"><animate attributeName="r" calcMode="spline" dur="2" values="1;80" keyTimes="0;1" keySplines="0 .2 .5 1" repeatCount="indefinite"></animate><animate attributeName="stroke-width" calcMode="spline" dur="2" values="0;25" keyTimes="0;1" keySplines="0 .2 .5 1" repeatCount="indefinite"></animate><animate attributeName="stroke-opacity" calcMode="spline" dur="2" values="1;0" keyTimes="0;1" keySplines="0 .2 .5 1" repeatCount="indefinite"></animate></circle></svg>  
                 </article>
 
                 <article id="page-send">

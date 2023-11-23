@@ -1,4 +1,4 @@
-predicate;
+script;
 
 use std::bytes::Bytes;
 use std::string::String;
@@ -242,11 +242,9 @@ fn test_webauthn() {
 
     let txid =         0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855;
 
-    assert_eq(main(signature, authenticationId, txid, pre, post), true);
+    assert_eq(main(signature, authenticationId, txid, pre, post), false);
 }
-*/
 
-/*
 // Ensure this all works correctly.
 #[test]
 fn test_webauthn() {
