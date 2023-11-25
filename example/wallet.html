@@ -311,6 +311,20 @@
                     const balance_0 = ethers.utils.formatUnits(BigInt(await predicate0.getBalance(types.BaseAssetId)), 9);
                     const balance_1 = ethers.utils.formatUnits(BigInt(await predicate1.getBalance(types.BaseAssetId)), 9);
 
+                    // If account 0 has a history, pick that one.
+                    if (parseFloat(balance_0) > 0 && parseFloat(balance_1) == 0) {
+                        await recoverAccount('0');
+
+                        return open('balance');
+                    }
+
+                    // If account 1 has a history, pick that one.
+                    if (parseFloat(balance_1) > 0 && parseFloat(balance_0) == 0) {
+                        await recoverAccount('1');
+
+                        return open('balance');
+                    }
+
                     select('[data-action="recoverAccounts"]').style.display = "none";
                     select('[data-recover="0"]').style.display = "block";
                     select('[data-recover="0"]').children[0].innerHTML = formatAddress(predicate0.address);
@@ -318,6 +332,9 @@
                     select('[data-recover="1"]').style.display = "block";
                     select('[data-recover="1"]').children[0].innerHTML = formatAddress(predicate1.address);
                     select('[data-recover="1"]').children[1].innerHTML = balance_1 + ' ETH';
+
+                    // Open recovery page.
+                    open('recover');
                 }
 
                 // Reset accounts page.
@@ -386,15 +403,16 @@
 
                         if (element.dataset.action == 'reset') {
                             // Are you sure?
-                            if (!confirm('Are you sure you want to logout of this wallet?')) {
+                            if (!confirm('Are you sure you want to switch accounts?')) {
                                 return;
                             }
 
-                            // Reset the state.
-                            setEmpty();
-
-                            // Open the create page.
-                            open('create');
+                            // Prompt wallet switching.
+                            try {
+                                await recoverAccounts();
+                            } catch (error) {
+                                open('create');
+                            }
                         }
 
                         if (element.dataset.page) {
@@ -786,14 +804,14 @@
                     <h1>AuthnWallet</h1>
 
                     <ul>
-                        <li>No installation, no seed phrases, no problems</li>
+                        <li>No seed phrases, no installation, no downloads, no problems!</li>
                         <li>Your keys are backed up on iCloud and KeyChain</li>
                         <li>Sign transactions using FaceID or TouchID</li>
                     </ul>
 
                     <p>Ensure Settings > Apple ID > iCloud -> Passwords and Keychain -> Sync this iPhone is on.</p>
 
-                    <p><a data-page="recover">Recover Wallet</a></p>
+                    <p><a data-action="recoverAccounts">Recover Wallet</a></p>
 
                     <nav>
                         <button data-action="createWallet">Create Wallet</button>
