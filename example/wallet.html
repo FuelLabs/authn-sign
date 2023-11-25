@@ -17,6 +17,7 @@
                 sha256,
                 toBuffer,
                 parseHexString,
+                base64ToHex,
                 concatHexStrings,
                 concatenateBuffers,
                 encode_signature,
@@ -29,26 +30,33 @@
             }
 
             (async () => {
-
                 // Application pages.
-                let pages = ['create', 'balance', 'send', 'scanner', 'loading', 'receive', 'success'];
+                let pages = ['create', 'balance', 'recover', 'send', 'scanner', 'loading', 'receive', 'success'];
 
                 // Is localhost.
                 const isLocalhost = window.location.hostname.includes('192');
 
+                // Generate username.
+                async function generateUsername() {
+                    return "authn_account-" + (isLocalhost ? '' : bufferToHex(await sha256(
+                        concatenateBuffers(
+                            toBuffer(window.navigator.userAgent),
+                            crypto.getRandomValues(new Uint8Array(32))
+                        )
+                    )));
+                }
+
                 // Build a unique account username to ensure different browsers don't override the same account.
-                const username = "authn_account-" + (isLocalhost ? '' : bufferToHex(await sha256(
-                    concatenateBuffers(
-                        toBuffer(window.navigator.userAgent),
-                        crypto.getRandomValues(new Uint8Array(32))
-                    )
-                )));
+                const username = await generateUsername();
 
                 // Set the challenge (this should be the tx ID in the future.).
                 const challenge = '0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 
                 // Get authn account.
                 const authnAccount = localStorage.getItem("authn_account");
+
+                // Fetch asset prices.
+                const pricesFetch = await fetch("https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=BTC,USD,EUR");
 
                 // Application state.
                 let state = {
@@ -58,6 +66,7 @@
                     balance: 0,
                     scanner: null,
                     qrcode: new QRCode(document.getElementById("qrcode"), "null"),
+                    prices: await pricesFetch.json() || { USD: 0 },
                 };
 
                 // Set to empty state.
@@ -66,17 +75,19 @@
                     state.account = new Account();
                     state.loaded = false;
                     state.predicate = null;
-                    state.null = 0;
-                    localStorage.removeItem("authn_account")
+                    localStorage.removeItem("authn_account");
                 }
+
+                // Requested page.
+                const requestedPage = (new URLSearchParams(window.location.search)).get("page");
 
                 // If there is an account.
                 if (state.loaded) {
                     // Open to your balance.
-                    open('balance');
+                    open(requestedPage || 'balance');
                 } else {
-                    // Create an account.
-                    open(isLocalhost ? 'balance' : 'create'); // create
+                    // Starting pages (recover or create).
+                    open((requestedPage == 'recover' ? 'recover' : 'create'));
                 }
 
                 // Setup the GraphQL provider.
@@ -108,10 +119,13 @@
                     select('#result-message').innerHTML = '';
                 }
 
+                // Format address.
+                function formatAddress(address = '') {
+                    return String(address).slice(0, 12) + '...' + String(address).slice(-12);
+                }
+
                 // Open page.
                 function open(pageName = '') {
-                    state.current = pages[pageName];
-
                     pages.forEach(name => {
                         select('#page-' + name).style.display = 'none';
                     });
@@ -136,6 +150,9 @@
                     // Update balance.
                     select('#balance-2').innerHTML = formattedBalance;
 
+                    // Update balance.
+                    select('#balance-priced').innerHTML = (parseFloat(formattedBalance) * parseFloat(state.prices.USD)).toFixed(2) + ' USD';
+
                     // Update max on send.
                     select('#send-value').setAttribute("max", formattedBalance);
                 }
@@ -147,7 +164,7 @@
                     state.qrcode.makeCode('' + address);
 
                     // Set the address for copying.
-                    select('#address').innerHTML = address;
+                    select('#address').innerHTML = formatAddress(address);
 
                     // Set the href address for faucet.
                     select('#faucet').href = 'https://faucet-beta-4.fuel.network/?address=' + address;
@@ -282,10 +299,53 @@
                     state.scanner.start();
                 }
 
+                // Recover account.
+                async function recoverAccounts() {
+                    const recover = await (new Account()).sign('0x84', { recover: true });
+                    state.recovered = recover;
+
+                    const predicate0 = buildPredicate(provider, recover.recovered.address0);
+                    const predicate1 = buildPredicate(provider, recover.recovered.address1);
+
+                    const balance_0 = ethers.utils.formatUnits(BigInt(await predicate0.getBalance(types.BaseAssetId)), 9);
+                    const balance_1 = ethers.utils.formatUnits(BigInt(await predicate1.getBalance(types.BaseAssetId)), 9);
+
+                    select('[data-action="recoverAccounts"]').style.display = "none";
+                    select('[data-recover="0"]').style.display = "block";
+                    select('[data-recover="0"]').children[0].innerHTML = formatAddress(predicate0.address);
+                    select('[data-recover="0"]').children[1].innerHTML = balance_0 + ' ETH';
+                    select('[data-recover="1"]').style.display = "block";
+                    select('[data-recover="1"]').children[0].innerHTML = formatAddress(predicate1.address);
+                    select('[data-recover="1"]').children[1].innerHTML = balance_1 + ' ETH';
+                }
+
+                // Reset accounts page.
+                function resetRecoverAccounts() {
+                    select('[data-action="recoverAccounts"]').style.display = "block";
+                    select('[data-recover="0"]').style.display = "none";
+                    select('[data-recover="1"]').style.display = "none";
+                }
+
+                // Recover specific account.
+                async function recoverAccount(option = 0) {
+                    // Write account.
+                    state.account = new Account(
+                        await generateUsername(),
+                        base64ToHex(state.recovered.id),
+                        '0x04' + state.recovered.recovered['publicKey' + option].slice(2),
+                    );
+
+                    // Update account information.
+                    await updateAccount();
+                }
+
+                // Select all elements helper.
+                function selectAll(...identifiers) {
+                    return [].concat(...identifiers.map(v => Array.from(document.querySelectorAll(v))));
+                }
+
                 // Add button actions.
-                Array.from(document.querySelectorAll('button'))
-                .concat(Array.from(document.querySelectorAll('video')))
-                .concat(Array.from(document.querySelectorAll('svg')))
+                selectAll('button', 'video', 'svg', 'a', 'h3')
                 .forEach(element => {
                     element.addEventListener('click', async () => {
                         if (element.dataset.action == 'createWallet') {
@@ -304,13 +364,28 @@
                             open('success');
                         }
 
+                        if (element.dataset.action == 'recoverAccounts') {
+                            await protect(recoverAccounts);
+                        }
+
+                        if (element.dataset.action == 'recover') {
+                            // Either 0 or 1.
+                            const index = parseInt(element.dataset.recover);
+
+                            // Recover the account.
+                            await protect(recoverAccount, index);
+
+                            // Open the balance page.
+                            open('balance');
+                        }
+
                         if (element.dataset.action == 'close') {
                             closeError();
                         }
 
                         if (element.dataset.action == 'reset') {
                             // Are you sure?
-                            if (!confirm('Are you sure you want to erase this wallet?')) {
+                            if (!confirm('Are you sure you want to logout of this wallet?')) {
                                 return;
                             }
 
@@ -326,6 +401,9 @@
                             if (state.scanner) {
                                 state.scanner.stop();
                             }
+
+                            // Reset recovery page.
+                            resetRecoverAccounts();
 
                             // Open the page.
                             open(element.dataset.page);
@@ -345,7 +423,7 @@
                     });
                 });
 
-                document.querySelectorAll('input').forEach(element => {
+                selectAll('input').forEach(element => {
                     element.addEventListener('keyup', () => {
                         if (element.max && parseFloat(element.value) > parseFloat(element.max)) {
                             element.value = element.max;
@@ -353,7 +431,7 @@
                     });
                 });
 
-                document.querySelectorAll('small').forEach(element => {
+                selectAll('small').forEach(element => {
                     element.addEventListener('click', () => {
                         if (element.dataset.clipboard) {
                             navigator.clipboard.writeText(element.innerText);
@@ -361,7 +439,7 @@
                     });
                 });
 
-                document.querySelectorAll('input').forEach(element => {
+                selectAll('input').forEach(element => {
                     if (element.type !== 'checkbox') return;
 
                     element.addEventListener('click', () => {
@@ -417,20 +495,16 @@
 
             small {
                 width: 100%;
+                text-align: center;
                 box-sizing: border-box;
             }
 
             nav {
                 width: 100%;
-                align-self: flex-end;
                 display: flex;
                 flex-direction: row;
                 justify-content: space-around;
                 gap: 10px;
-            }
-
-            small {
-                cursor: pointer;
             }
 
             ul {
@@ -453,8 +527,9 @@
                 min-height: 3rem;
                 font-weight: 400;
                 background-color: var(--blue);
+                padding-left: 1.4rem;
+                padding-right: 1.4rem;
                 border: none;
-                cursor: pointer;
                 max-height: 3rem;
             }
 
@@ -489,6 +564,10 @@
                 border-color: lightgray;
             }
 
+            label, button, a, label input, label .overlay, hgroup svg, .scan-icon, h3, small, .reset-icon {
+                cursor: pointer;
+            }
+
             label {
                 box-sizing: border-box;
                 width: 100%;
@@ -497,13 +576,11 @@
                 display: flex;
                 flex-direction: row;
                 align-items: center;
-                cursor: pointer;
             }
 
             label input {
                 position: absolute;
                 opacity: 0;
-                cursor: pointer;
             }
 
             label .overlay {
@@ -517,7 +594,6 @@
                 border: 1px solid var(--blue);
                 transform: rotate(-90deg);
                 transition: all 0.3s;
-                cursor: pointer;
             }
 
             label .icon {
@@ -540,6 +616,7 @@
             h3 {
                 color: lightgray;
                 font-size: 1.04rem;
+                display: block;
             }
 
             hgroup {
@@ -562,7 +639,6 @@
                 position: absolute;
                 top: .35rem;
                 right: .35rem;
-                cursor: pointer;
             }
 
             hgroup svg path {
@@ -575,6 +651,14 @@
                 width: 100vw;
                 height: 100vh;
                 object-fit: cover;
+            }
+
+            h3 {
+                color: black;
+                border: 1px solid lightgray;
+                padding: 1.4rem;
+                word-break: break-all;
+                border-radius: 1.4rem;
             }
             
             #container {
@@ -592,19 +676,24 @@
                 transition: color .2s;
             }
 
-            #address:active:after {
-                content: " 📋";
-            }
-
             #page-loading {
                 justify-content: center;
+            }
+
+            #page-recover > h3, #page-recover > div {
+                display: none;
             }
 
             .scan-icon {
                 position: absolute;
                 top: 1.4rem;
                 left: 1.4rem;
-                cursor: pointer;
+            }
+
+            .reset-icon {
+                position: absolute;
+                top: 1.4rem;
+                right: 1.4rem;
             }
 
             .checkmark__circle {
@@ -703,6 +792,8 @@
 
                     <p>Ensure Settings > Apple ID > iCloud -> Passwords and Keychain -> Sync this iPhone is on.</p>
 
+                    <p><a data-page="recover">Recover Wallet</a></p>
+
                     <nav>
                         <button data-action="createWallet">Create Wallet</button>
                     </nav>
@@ -717,12 +808,14 @@
                             <path d="M7 21H5a2 2 0 01-2-2v-2"/>
                         </g>
                     </svg>
+                    <svg class="reset-icon" data-action="reset" xmlns="http://www.w3.org/2000/svg" fill="#000000" width="40px" height="40px" viewBox="0 0 40 40">
+                        <g transform="scale(.02)">
+                            <path d="M960 0v213.333c411.627 0 746.667 334.934 746.667 746.667S1371.627 1706.667 960 1706.667 213.333 1371.733 213.333 960c0-197.013 78.4-382.507 213.334-520.747v254.08H640V106.667H53.333V320h191.04C88.64 494.08 0 720.96 0 960c0 529.28 430.613 960 960 960s960-430.72 960-960S1489.387 0 960 0" fill-rule="evenodd"/>
+                        </g>
+                    </svg>
                     <br />
-                    <h1><span id="balance">0.00</span> ETH</h2>
+                    <section><h1><span id="balance">0.00</span> ETH</h2><div id="balance-priced">0 USD</div></section>
                     <a id="faucet" href="https://faucet-beta-4.fuel.network/?address=" target="_blank">Faucet Ether</a>
-                    <section>
-                        <button data-action="reset">Reset</button>
-                    </section>
                     <nav>
                         <button data-page="receive">Receive</button>
                         <button data-page="send">Send</button>
@@ -737,6 +830,23 @@
                     </small>
                     <nav>
                         <button data-page="balance">Back</button>
+                    </nav>
+                </article>
+
+                <article id="page-recover">
+                    <br />
+                    <button data-action="recoverAccounts">Recover Account</button>
+                    <div>Select the account to recover below.</div>
+                    <h3 data-action="recover" data-recover="0">
+                        <div>0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</div>
+                        <div>0 ETH</div>
+                    </h3>
+                    <h3 data-action="recover" data-recover="1">
+                        <div>0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</div>
+                        <div>0 ETH</div>
+                    </h3>
+                    <nav>
+                        <button data-page="create">Back</button>
                     </nav>
                 </article>
 
@@ -776,8 +886,9 @@
                     </section>
                     <section>
                         <input id="send-value" type="number" pattern="[0-9.]*" placeholder="amount" />
-                        <h3><span id="balance-2">0</span> ETH</h3>
+                        <h4><span id="balance-2">0</span> ETH</h4>
                     </section>
+                    <br />
                     <nav>
                         <button data-page="balance">Back</button>
                         <button data-action="send">Confirm</button>
@@ -796,9 +907,5 @@
                 </article>
             </div>
         </div>
-
-        <!--
-            <svg class="w-8 h-8" viewBox="0 0 344 344" class="PJLV PJLV-ihefsQo-css fuel_Logo"><rect x="25" y="37" width="292" height="284" fill="black"></rect><path d="M22.8744 0C10.2181 0 0 10.218 0 22.8744V344H284.626C294.246 344 303.497 340.179 310.308 333.368L333.368 310.308C340.179 303.497 344 294.246 344 284.626V0H22.8744ZM224.608 44.231L112.718 156.121C109.956 158.882 106.182 160.447 102.27 160.447C96.5631 160.447 91.3157 157.134 88.8763 151.978L45.5194 60.3402C41.9756 52.8383 47.4525 44.231 55.7374 44.231H224.608ZM44.231 299.769V190.916C44.231 185.117 48.9257 180.422 54.7249 180.422H163.577L44.231 299.769ZM172.598 160.447H136.559L244.998 52.0097C249.968 47.0382 256.734 44.231 263.776 44.231H299.814L191.377 152.668C186.407 157.64 179.64 160.447 172.598 160.447Z" fill="#00F58C"></path></svg>
-        -->
     </body>
 </html>

@@ -231,6 +231,11 @@ export async function simulate_onchain_verification(
 // This is used for getting accounts with minimal information.
 const defaultRegistrationChallenge = '0xd71c99459c75101576e1019080db5deef5dbf0669fc8421faf17ff883977ebcb';
 
+// Compute address. 
+export async function computeAddress(publicKeyCompact = '0x') {
+    return bufferToHex(await sha256(hexToBuffer(publicKeyCompact)));
+}
+
 // Primary Account object.
 export default class Account {
     #id: string = '';
@@ -249,7 +254,7 @@ export default class Account {
 
     // Return the address based upon sha256.
     async address(): Promise<string> {
-        return bufferToHex(await sha256(hexToBuffer(this.publicKeyCompact)));
+        return computeAddress(this.publicKeyCompact);
     }
 
     /**
@@ -382,8 +387,15 @@ export default class Account {
         // Challenge in base64.
         const challengeBase64 = toBase64url(parseHexString(challenge));
 
+        // Recovery options.
+        const recoverOptions = {
+            challenge: hexToBuffer(options.challenge || defaultRegistrationChallenge),
+            rpId: this.#options.window.location.hostname,
+            userVerification: "required",
+        };
+
         // Authentication options.
-        const authOptions: any = {
+        const authOptions: any = options.recover ? null : {
             challenge: parseBase64url(challengeBase64),
             rpId: this.#options.window.location.hostname,
             allowCredentials: [{
@@ -395,11 +407,11 @@ export default class Account {
             timeout: 60000,
         };
 
-        if(options.debug) console.debug(authOptions)
+        if(options.debug) console.debug(recoverOptions, authOptions);
 
         // Get authentication.
         let authentication = await this.#options.navigator.credentials.get({
-            publicKey: authOptions,
+            publicKey: options.recover ? recoverOptions : authOptions,
             mediation: options.mediation,
         });
 
@@ -436,16 +448,28 @@ export default class Account {
         // Prepair the digest.
         const digest = bufferToHex(await sha256(parseHexString(message)));
 
+        // Recover both signatures. 
+        const publicKey0 = options.recover ? recover(signature, digest, 0) : this.publicKeyCompact;
+        const publicKey1 = options.recover ? recover(signature, digest, 1) : this.publicKeyCompact;
+
         // Return the signature data.
         return {
+            id: authentication.id,
+            rawId: authentication.rawId,
             challengePaddingLength: challengeBase64,
             digest,
             authenticatorData: bufferToHex(authenticatorData),
             clientData: clientDataToJSON(clientData),
             message,
-            normalized: normalizeSignature(signature, digest, this.publicKeyCompact), // EIP-2098
+            normalized: options.recover ? '0x' : normalizeSignature(signature, digest, this.publicKeyCompact), // EIP-2098
             signature,
             authOptions,
+            recovered: options.recover ? {
+                publicKey0,
+                address0: await computeAddress(publicKey0),
+                publicKey1,
+                address1: await computeAddress(publicKey1),
+            } : null,
         };
     }
 

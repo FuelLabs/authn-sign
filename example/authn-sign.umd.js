@@ -1943,6 +1943,9 @@
     }
     return secp256r1.verify(decode_signature(signature).signature.slice(2), message.slice(2), publicKey.slice(2), { lowS: false, prehash: true }) === true;
   }
+  async function computeAddress(publicKeyCompact = "0x") {
+    return bufferToHex(await sha2563(hexToBuffer(publicKeyCompact)));
+  }
   function recover(signature = "0x", message = "0x", recoveryBit = 0) {
     const recovered = secp256r1.Signature.fromCompact(bufferToHex(secp256r1.Signature.fromCompact(signature.slice(2)).normalizeS().toCompactRawBytes()).slice(2)).addRecoveryBit(recoveryBit).recoverPublicKey(message.slice(2));
     let y = recovered.y.toString(16);
@@ -1996,7 +1999,7 @@
       return "0x" + this.#publicKey.slice(4);
     }
     async address() {
-      return bufferToHex(await sha2563(hexToBuffer(this.publicKeyCompact)));
+      return computeAddress(this.publicKeyCompact);
     }
     constructor(username, id, pulicKey, options) {
       this.#id = id;
@@ -2071,7 +2074,12 @@
     async sign(challenge = "0x", options) {
       options = options || {};
       const challengeBase64 = toBase64url(parseHexString(challenge));
-      const authOptions = {
+      const recoverOptions = {
+        challenge: hexToBuffer(options.challenge || defaultRegistrationChallenge),
+        rpId: this.#options.window.location.hostname,
+        userVerification: "required"
+      };
+      const authOptions = options.recover ? null : {
         challenge: parseBase64url(challengeBase64),
         rpId: this.#options.window.location.hostname,
         allowCredentials: [{
@@ -2083,9 +2091,9 @@
         timeout: 60000
       };
       if (options.debug)
-        console.debug(authOptions);
+        console.debug(recoverOptions, authOptions);
       let authentication = await this.#options.navigator.credentials.get({
-        publicKey: authOptions,
+        publicKey: options.recover ? recoverOptions : authOptions,
         mediation: options.mediation
       });
       const clientData = toBase64url(authentication.response.clientDataJSON);
@@ -2094,15 +2102,25 @@
       const message = bufferToHex(concatenateBuffers(authenticatorData, clientHash));
       const signature = bufferToHex(convertASN1toRaw(parseBase64url(toBase64url(authentication.response.signature))));
       const digest = bufferToHex(await sha2563(parseHexString(message)));
+      const publicKey0 = options.recover ? recover(signature, digest, 0) : this.publicKeyCompact;
+      const publicKey1 = options.recover ? recover(signature, digest, 1) : this.publicKeyCompact;
       return {
+        id: authentication.id,
+        rawId: authentication.rawId,
         challengePaddingLength: challengeBase64,
         digest,
         authenticatorData: bufferToHex(authenticatorData),
         clientData: clientDataToJSON(clientData),
         message,
-        normalized: normalizeSignature(signature, digest, this.publicKeyCompact),
+        normalized: options.recover ? "0x" : normalizeSignature(signature, digest, this.publicKeyCompact),
         signature,
-        authOptions
+        authOptions,
+        recovered: options.recover ? {
+          publicKey0,
+          address0: await computeAddress(publicKey0),
+          publicKey1,
+          address1: await computeAddress(publicKey1)
+        } : null
       };
     }
     verify(message = "0x", signature = "0x") {
@@ -2113,11 +2131,12 @@
     throw new Error("invalid bit");
   };
 
-  //# debugId=FDC6F5EE8352EC3664756e2164756e21
+  //# debugId=3BE1573A60F120C464756e2164756e21
 
   exports.base64ToHex = base64ToHex;
   exports.bufferToHex = bufferToHex;
   exports.clientDataToJSON = clientDataToJSON;
+  exports.computeAddress = computeAddress;
   exports.concatHexStrings = concatHexStrings;
   exports.concatenateBuffers = concatenateBuffers;
   exports.convertASN1toRaw = convertASN1toRaw;
