@@ -270,34 +270,6 @@ export default class Account {
     }
 
     /**
-     *  The ```get``` an existing signing account for this website.
-     *
-     *  This is the primary account register function for WebAuthn.
-     */
-    async get(options?:any): Promise<any> {
-        // Setup default options.
-        options = options || {};
-
-        // Get credential optioons.
-        const getCredentialOptions = options.getOptions || {
-            publicKey: {
-                challenge: hexToBuffer(options.challenge || defaultRegistrationChallenge),
-                rpId: this.#options.window.location.hostname,
-                userVerification: "required",
-            },
-        };
-
-        // Credential.
-        const credential = await this.#options.navigator.credentials.get(getCredentialOptions);
-
-        // Return ID.
-        return {
-            id: (credential || {}).id,
-            credential,
-        };
-    }
-
-    /**
      *  The ```register``` method for signature.
      *
      *  This is the primary account register function for WebAuthn.

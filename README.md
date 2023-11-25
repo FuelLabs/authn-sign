@@ -78,6 +78,20 @@ const account = new Account(/* username, id, publicKey */);
 })();
 ```
 
+### Account Recovery
+```js
+import Account from "authn-sign";
+
+// Authn Account.
+const account = new Account();
+
+// Recover Account.
+const recover = account.sign('0xabcd', { recovery: true });
+
+// This will present the two potential publicKey and address options this account could be.
+console.log(recover.recovered);
+```
+
 ### Example Code:
 [./example/index.html](./example/index.html)
 
@@ -186,7 +200,6 @@ export declare function normalizeSignature(signature?: string, digest?: string, 
 - Better typing structures (e.g. PublicKey, Signature, CreationOption etc.).
 - Make optional the dependancy on node/browser crypto module.
 - Final API is still being decided so leave your feedback as an issue!
-- Better account recovery from credentials.get.
 
 ## Licence
 ```

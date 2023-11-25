@@ -2005,21 +2005,6 @@ class Account {
     this.#publicKey = pulicKey;
     this.#options = options || this.#options;
   }
-  async get(options) {
-    options = options || {};
-    const getCredentialOptions = options.getOptions || {
-      publicKey: {
-        challenge: hexToBuffer(options.challenge || defaultRegistrationChallenge),
-        rpId: this.#options.window.location.hostname,
-        userVerification: "required"
-      }
-    };
-    const credential = await this.#options.navigator.credentials.get(getCredentialOptions);
-    return {
-      id: (credential || {}).id,
-      credential
-    };
-  }
   async register(username, options) {
     this.#username = username;
     options = options || {};
@@ -2158,4 +2143,4 @@ export {
   base64ToHex
 };
 
-//# debugId=3BE1573A60F120C464756e2164756e21
+//# debugId=4B2D19991793599864756e2164756e21
