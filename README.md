@@ -14,7 +14,7 @@ A simplified browser interface for WebAuthn focused on secp256r1 (P-256) signing
 
 A note that WebAuthn local testing requires HTTPS and a `localhost` non IP address.
 
-Try it now: [authn-sign.vercel.app](https://authn-sign.vercel.app) or a full Fuel wallet [authn-sign.vercel.app/wallet.html](https://authn-sign.vercel.app/wallet.html).
+Try it now: [authn-sign.vercel.app](https://authn-sign.vercel.app).
 
 ## Install
 ```sh
@@ -92,14 +92,11 @@ const recover = account.sign('0xabcd', { recovery: true });
 console.log(recover.recovered);
 ```
 
-### Example Code:
-[./example/index.html](./example/index.html)
-
-### Hosted Example:
+### Hosted Wallet Example:
 [authn-sign.vercel.app/](https://authn-sign.vercel.app)
 
-### Wallet Example:
-[authn-sign.vercel.app/wallet.html](https://authn-sign.vercel.app/wallet.html)
+### Simple Example:
+[authn-sign.vercel.app/simple.html](https://authn-sign.vercel.app/simple.html)
 
 ## Blockchain Verification Check (in NodeJS)
 ```js
