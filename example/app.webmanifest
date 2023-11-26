@@ -1,0 +1,32 @@
+{
+  "background_color": "#ffffff",
+  "description": "AuthnWallet, a demonstration Fuel Network wallet with key management using WebAuthn.",
+  "dir": "ltr",
+  "display": "fullscreen",
+  "name": "AuthnWallet",
+  "orientation": "portrait",
+  "scope": "/",
+  "short_name": "AuthnWallet",
+  "start_url": "/",
+  "theme_color": "#ffffff",
+  "categories": [
+    "finance",
+    "utilities"
+  ],
+  "screenshots": [],
+  "icons": [
+    {
+      "src": "icon-large.jpg",
+      "type": "image/jpg",
+      "sizes": "512x512"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "AuthnWallet",
+      "url": "https://authn-sign.vercel.app",
+      "description": ""
+    }
+  ],
+  "id": "AuthnWallet"
+}
