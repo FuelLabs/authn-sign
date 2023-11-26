@@ -32,7 +32,7 @@
 
             (async () => {
                 // Application pages.
-                let pages = ['create', 'balance', 'recover', 'send', 'scanner', 'loading', 'receive', 'success'];
+                let pages = ['create', 'balance', 'faucet', 'send', 'scanner', 'loading', 'receive', 'success'];
 
                 // Is localhost.
                 const isLocalhost = window.location.hostname.includes('192');
@@ -88,7 +88,7 @@
                     open(requestedPage || 'balance');
                 } else {
                     // Starting pages (recover or create).
-                    open((requestedPage == 'recover' ? 'recover' : 'create'));
+                    open(isLocalhost ? requestedPage : 'create');
                 }
 
                 // Setup the GraphQL provider.
@@ -107,17 +107,30 @@
                 }
 
                 // Set an error.
-                function setResult(error) {
+                function setResult(error, options = {}) {
+                    options = options ?? {};
+
+                    if (options.positive) {
+                        select('#result').style.background = 'var(--green)';
+                    } else {
+                        select('#result').style.background = 'var(--red)';
+                    }
+
                     select('#result').style.visibility = 'visible';
+                    select('#result').style.opacity = '1';
                     select('#result-message').innerHTML = typeof error === "string"
                         ? error
                         : error.message;
+
+                    if (options.fadeout) {
+                        setTimeout(closeError, 230);
+                    }
                 }
 
                 // Close error.
                 function closeError() {
                     select('#result').style.visibility = 'hidden';
-                    select('#result-message').innerHTML = '';
+                    select('#result').style.opacity = '0';
                 }
 
                 // Format address.
@@ -165,11 +178,11 @@
                     state.qrcode.makeCode('' + address);
 
                     // Set the address for copying.
+                    select('#address').dataset.clipboard = address;
                     select('#address').innerHTML = formatAddress(address);
 
-                    // Set the href address for faucet.
-                    select('#faucet').href = 'https://faucet-beta-4.fuel.network/?address=' + address;
-                    select('#faucet').setAttribute("href", 'https://faucet-beta-4.fuel.network/?address=' + address);
+                    // Set iframe faucet URL.
+                    select('iframe').src = 'https://faucet-beta-4.fuel.network/?address=' + address;
                 }
 
                 // Update the application balance.
@@ -212,18 +225,28 @@
                     // Loading screen.
                     open('loading');
 
-                    // Prepare the transaction.
-                    const tx = await state.predicate
-                        .transfer(recipient, value, types.BaseAssetId, {
-                            gasPrice: 1,
-                            gasLimit: 3_500_000,
-                        });
+                    try {
+                        // Prepare the transaction.
+                        const tx = await state.predicate
+                            .transfer(recipient, value, types.BaseAssetId, {
+                                gasPrice: 1,
+                                gasLimit: 50_000, // 3_500_000, // 25_000,
+                            });
 
-                    // Wait for result.
-                    const result = await tx.waitForResult();
+                        // Wait for result.
+                        const result = await tx.waitForResult();
+                            
+                        // Set success link to transaction, reset value.
+                        select('#success-link').href = 'https://fuellabs.github.io/block-explorer-v2/beta-4/#/transaction/' + result.id;    
+                        select('#send-recipient').value = '';
+                        select('#send-value').value = '';
+                    } catch (error) {
+                        // Go back to the send page.
+                        open('send');
 
-                    // Set success link to transaction.
-                    select('#success-link').href = 'https://fuellabs.github.io/block-explorer-v2/beta-4/#/transaction/' + result.id;
+                        // Throw new error.
+                        throw new Error(error.message);
+                    }
                 }
 
                 // Set the account address in the UI.
@@ -328,23 +351,27 @@
                         return open('balance');
                     }
 
-                    select('[data-action="recoverAccounts"]').style.display = "none";
-                    select('[data-recover="0"]').style.display = "block";
-                    select('[data-recover="0"]').children[0].innerHTML = formatAddress(predicate0.address);
-                    select('[data-recover="0"]').children[1].innerHTML = balance_0 + ' ETH';
-                    select('[data-recover="1"]').style.display = "block";
-                    select('[data-recover="1"]').children[0].innerHTML = formatAddress(predicate1.address);
-                    select('[data-recover="1"]').children[1].innerHTML = balance_1 + ' ETH';
+                    // Try account 0.
+                    const testAccount = new Account(
+                        await generateUsername(),
+                        base64ToHex(recover.id),
+                        '0x04' + recover.recovered['publicKey' + '0'].slice(2),
+                    );
 
-                    // Open recovery page.
-                    open('recover');
-                }
+                    // Test account 0 for signing, if it fails, then we go to account 1.
+                    try {
+                        // If this works, then all good for account 0.
+                        await testAccount.sign('0x84');
 
-                // Reset accounts page.
-                function resetRecoverAccounts() {
-                    select('[data-action="recoverAccounts"]').style.display = "block";
-                    select('[data-recover="0"]').style.display = "none";
-                    select('[data-recover="1"]').style.display = "none";
+                        // Recover account 0.
+                        await recoverAccount('0');
+                    } catch (error) {
+                        // If it fails, then it's account 1.
+                        await recoverAccount('1');
+                    }
+
+                    // Open balance.
+                    return open('balance');
                 }
 
                 // Recover specific account.
@@ -366,7 +393,7 @@
                 }
 
                 // Add button actions.
-                selectAll('button', 'video', 'svg', 'a', 'h3')
+                selectAll('button', 'video', 'svg', 'a', 'h3', 'small')
                 .forEach(element => {
                     element.addEventListener('click', async () => {
                         if (element.dataset.action == 'createWallet') {
@@ -400,6 +427,19 @@
                             open('balance');
                         }
 
+                        if (element.dataset.action == 'max') {
+                            // The estimated fee for this action.
+                            const estimateFee = parseFloat('0.000050000');
+
+                            select('#send-value').value = parseFloat(ethers.utils.formatUnits(state.balance, 9)) - estimateFee;
+                        }
+
+                        if (element.dataset.clipboard) {
+                            navigator.clipboard.writeText(element.dataset.clipboard);
+
+                            setResult('Copied!', { positive: true, fadeout: true });
+                        }
+
                         if (element.dataset.action == 'close') {
                             closeError();
                         }
@@ -423,9 +463,6 @@
                             if (state.scanner) {
                                 state.scanner.stop();
                             }
-
-                            // Reset recovery page.
-                            resetRecoverAccounts();
 
                             // Open the page.
                             open(element.dataset.page);
@@ -453,14 +490,6 @@
                     });
                 });
 
-                selectAll('small').forEach(element => {
-                    element.addEventListener('click', () => {
-                        if (element.dataset.clipboard) {
-                            navigator.clipboard.writeText(element.innerText);
-                        }
-                    });
-                });
-
                 selectAll('input').forEach(element => {
                     if (element.type !== 'checkbox') return;
 
@@ -483,6 +512,8 @@
         <style type="text/css">
             :root {
                 --blue: #6b70f5;
+                --green: rgb(10, 111, 10);
+                --red: #be3737;
             }
 
             html, body {
@@ -506,6 +537,7 @@
 
             article {
                 position: relative;
+                overflow: hidden;
                 height: 100%;
                 padding: 1.4rem;
                 box-sizing: border-box;
@@ -528,6 +560,7 @@
                 flex-direction: row;
                 justify-content: space-around;
                 gap: 10px;
+                z-index: 1000;
             }
 
             ul {
@@ -653,9 +686,10 @@
                 top: 1.4rem;
                 right: 1.4rem;
                 padding: 1.4rem;
-                background: #be3737;
+                background: var(--red);
                 color: white;
                 visibility: hidden;
+                transition: visibility 0.2s linear, opacity 0.2s ease-in-out;
             }
 
             hgroup svg {
@@ -683,6 +717,13 @@
                 word-break: break-all;
                 border-radius: 1.4rem;
             }
+
+            iframe {
+                position: absolute;
+                top: 20px;
+                width: 100%;
+                height: 100%;
+            }
             
             #container {
                 position: relative;
@@ -709,6 +750,10 @@
 
             #success-link {
                 margin-top: auto;
+            }
+
+            #page-send h4 a {
+                float: right;
             }
 
             .scan-icon {
@@ -844,7 +889,7 @@
                     </svg>
                     <br />
                     <section><h1><span id="balance">0.00</span> ETH</h2><div id="balance-priced">0 USD</div></section>
-                    <a id="faucet" href="https://faucet-beta-4.fuel.network/?address=" target="_blank">Faucet Ether</a>
+                    <a id="faucet" data-page="faucet">Faucet Ether</a>
                     <nav>
                         <button data-page="receive">Receive</button>
                         <button data-page="send">Send</button>
@@ -854,28 +899,19 @@
                 <article id="page-receive">
                     <br />
                     <div id="qrcode"></div>
-                    <small id="address" data-clipboard="true">
-                        0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+                    <small id="address" data-clipboard="0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855">
+                        0xe3b0c44298fc1c149afbf4c89...427ae41e4649b934ca495991b7852b855
                     </small>
                     <nav>
                         <button data-page="balance">Back</button>
                     </nav>
                 </article>
 
-                <article id="page-recover">
+                <article id="page-faucet">
                     <br />
-                    <button data-action="recoverAccounts">Recover Account</button>
-                    <div>Select the account to recover below.</div>
-                    <h3 data-action="recover" data-recover="0">
-                        <div>0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</div>
-                        <div>0 ETH</div>
-                    </h3>
-                    <h3 data-action="recover" data-recover="1">
-                        <div>0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</div>
-                        <div>0 ETH</div>
-                    </h3>
+                    <iframe src="https://faucet-beta-4.fuel.network/?address=" title="Fuel Network Faucet"></iframe>
                     <nav>
-                        <button data-page="create">Back</button>
+                        <button data-page="balance">Back</button>
                     </nav>
                 </article>
 
@@ -915,7 +951,7 @@
                     </section>
                     <section>
                         <input id="send-value" type="number" pattern="[0-9.]*" placeholder="amount" />
-                        <h4><span id="balance-2">0</span> ETH</h4>
+                        <h4><span id="balance-2">0</span> ETH <a data-action="max">MAX</a></h4>
                     </section>
                     <br />
                     <nav>
