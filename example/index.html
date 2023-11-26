@@ -159,13 +159,18 @@
                     const formattedBalance = ethers.utils.formatUnits(state.balance, 9);
 
                     // Update balance.
+                    select('#balance').dataset.clipboard = formattedBalance;
                     select('#balance').innerHTML = formattedBalance;
 
                     // Update balance.
                     select('#balance-2').innerHTML = formattedBalance;
 
+                    // Calculate USD value of asset.
+                    const USDValue = (parseFloat(formattedBalance) * parseFloat(state.prices.USD)).toFixed(2);
+
                     // Update balance.
-                    select('#balance-priced').innerHTML = (parseFloat(formattedBalance) * parseFloat(state.prices.USD)).toFixed(2) + ' USD';
+                    select('#balance-priced').dataset.clipboard = USDValue;
+                    select('#balance-priced').innerHTML = USDValue + ' USD';
 
                     // Update max on send.
                     select('#send-value').setAttribute("max", formattedBalance);
@@ -393,8 +398,11 @@
                 }
 
                 // Add button actions.
-                selectAll('button', 'video', 'svg', 'a', 'h3', 'small')
+                selectAll('button', 'video', 'svg', 'a', 'h3', 'small', 'span', 'div')
                 .forEach(element => {
+                    // If no dataset, then next element.
+                    if (Object.keys(element.dataset).length == 0) return;
+
                     element.addEventListener('click', async () => {
                         if (element.dataset.action == 'createWallet') {
                             // Create wallet.
@@ -620,7 +628,7 @@
                 border-color: lightgray;
             }
 
-            label, button, a, label input, label .overlay, hgroup svg, .scan-icon, h3, small, .reset-icon {
+            label, button, a, label input, label .overlay, hgroup svg, .scan-icon, h3, .reset-icon, *[data-clipboard] {
                 cursor: pointer;
             }
 
@@ -689,7 +697,6 @@
                 background: var(--red);
                 color: white;
                 visibility: hidden;
-                transition: visibility 0.2s linear, opacity 0.2s ease-in-out;
             }
 
             hgroup svg {
