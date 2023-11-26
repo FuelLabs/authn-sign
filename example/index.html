@@ -8,7 +8,7 @@
         <link href="https://cdn.jsdelivr.net/npm/reset-css@5.0.2/reset.min.css" rel="stylesheet">
         <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js" type="application/javascript"></script>
         <script defer src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSQX0FslNhTDadL4O5SAGapGt4FodqL8My0mA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>  
-        <script src="https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.umd.min.js"></script>
+        <script type="text/javascript" src="/jsQR.min.js"></script>
     </head>
     <body>
         <script type="module">
@@ -31,9 +31,14 @@
                 return document.querySelector(selector);
             }
 
+            // Select all elements helper.
+            function selectAll(...identifiers) {
+                return [].concat(...identifiers.map(v => Array.from(document.querySelectorAll(v))));
+            }
+
             (async () => {
                 // Application pages.
-                let pages = ['create', 'balance', 'faucet', 'send', 'scanner', 'loading', 'receive', 'success'];
+                let pages = ['create', 'balance', 'faucet', 'frame', 'send', 'scanner', 'loading', 'receive', 'success'];
 
                 // Is localhost.
                 const isLocalhost = window.location.hostname.includes('192');
@@ -66,7 +71,6 @@
                     account: authnAccount ? new Account(...JSON.parse(authnAccount)) : new Account(),
                     predicate: null,
                     balance: 0,
-                    scanner: null,
                     qrcode: new QRCode(document.getElementById("qrcode"), "null"),
                     prices: await pricesFetch.json() || { USD: 0 },
                 };
@@ -81,12 +85,12 @@
                 }
 
                 // Requested page.
-                const requestedPage = (new URLSearchParams(window.location.search)).get("page");
+                const requestedPage = (new URLSearchParams(window.location.search)).get("page") || 'balance';
 
                 // If there is an account.
                 if (state.loaded) {
                     // Open to your balance.
-                    open(requestedPage || 'balance');
+                    open(requestedPage);
                 } else {
                     // Starting pages (recover or create).
                     open(isLocalhost ? requestedPage : 'create');
@@ -119,12 +123,12 @@
 
                     select('#result').style.visibility = 'visible';
                     select('#result').style.opacity = '1';
-                    select('#result-message').innerHTML = typeof error === "string"
+                    select('#result span').innerHTML = typeof error === "string"
                         ? error
                         : error.message;
 
                     if (options.fadeout) {
-                        setTimeout(closeError, 230);
+                        setTimeout(closeError, 500);
                     }
                 }
 
@@ -300,12 +304,17 @@
                 }
 
                 function scannerStop(data) {
-                    // Stop the scanner.
-                    state.scanner.stop();
+                    if (state.stream) {
+                        state.stream.getTracks().forEach(function(track) {
+                            track.stop();
+                        });
 
-                    // Stop the scanner.
-                    state.scanner.destroy();
-        
+                        clearInterval(state.tick);
+                    }
+
+                    // If no data, stop here.
+                    if (!data) return;
+                    
                     // Set the receipient value.
                     select('#send-to-self').checked = false;
                     select('#send-recipient').value = data;
@@ -319,17 +328,60 @@
 
                 // QRCode scanner.
                 function updateScanner() {
-                    state.scanner = new QrScanner(
-                        select('#scanner'),
-                        result => {
-                            scannerStop(result.data);
-                        },
-                        {
-                            highlightScanRegion: true,
-                        },
-                    );
-                    state.scanner["_disableBarcodeDetector"] = true;
-                    state.scanner.start();
+                    try {
+                        var video = document.createElement("video");
+                        var canvasElement = document.getElementById("canvas");
+                        var canvas = canvasElement.getContext("2d");
+
+                        navigator.permissions.query({ name: "camera" }).then((result) => {
+                            if (result.state === "granted") {
+                                console.log(result);
+                            } else if (result.state === "prompt") {
+                                console.log(result);
+                            }
+                        });
+
+                        navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: "environment" } })
+                        .then(function(stream) {
+                            video.srcObject = stream;
+                            video.setAttribute("playsinline", true); // required to tell iOS safari we don't want fullscreen
+                            video.setAttribute("crossorigin", "true");
+                            video.play();
+
+                            video.onerror = function (error) {
+                                // alert(error.message);
+                            };
+                            video.onabort = function (error) {
+                                // alert(error.message);
+                            };
+
+                            state.stream = stream;
+                            state.tick = setInterval(tick, 5);
+                        })
+                        .catch(error => {
+                            // alert(error.message);
+                        });
+
+                        function tick() {
+                            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                                canvasElement.height = video.videoHeight;
+                                canvasElement.width = video.videoWidth;
+
+                                canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+                                var imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+                                
+                                var code = jsQR(imageData.data, imageData.width, imageData.height, {
+                                    inversionAttempts: "dontInvert",
+                                });
+
+                                if (code) {
+                                    scannerStop(code.data);
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        // alert(error.message);
+                    }
                 }
 
                 // Recover account.
@@ -393,13 +445,8 @@
                     await updateAccount();
                 }
 
-                // Select all elements helper.
-                function selectAll(...identifiers) {
-                    return [].concat(...identifiers.map(v => Array.from(document.querySelectorAll(v))));
-                }
-
                 // Add button actions.
-                selectAll('button', 'video', 'svg', 'a', 'h3', 'small', 'span', 'div')
+                selectAll('button', 'video', 'canvas', 'svg', 'a', 'h3', 'small', 'span', 'div', 'input')
                 .forEach(element => {
                     // If no dataset, then next element.
                     if (Object.keys(element.dataset).length == 0) return;
@@ -469,8 +516,8 @@
 
                         if (element.dataset.page) {
                             // If you switch to any other page turn scanner off.
-                            if (state.scanner) {
-                                state.scanner.stop();
+                            if (state.stream) {
+                                scannerStop(null);
                             }
 
                             // Open the page.
@@ -488,6 +535,19 @@
                         if (element.dataset.page == "send") {
                             select('#send-value').focus();
                         }
+
+                        if (element.type == 'checkbox') {
+                            if (element.checked == true){
+                                if (element.dataset.disable) {
+                                    select(element.dataset.disable).disabled = true;
+                                    select(element.dataset.disable).value = "";
+                                }
+                            } else {
+                                if (element.dataset.disable) {
+                                    select(element.dataset.disable).disabled = false;
+                                }
+                            }
+                        }
                     });
                 });
 
@@ -498,24 +558,6 @@
                         }
                     });
                 });
-
-                selectAll('input').forEach(element => {
-                    if (element.type !== 'checkbox') return;
-
-                    element.addEventListener('click', () => {
-                        if (element.checked == true){
-                            if (element.dataset.disable) {
-                                select(element.dataset.disable).disabled = true;
-                                select(element.dataset.disable).value = "";
-                            }
-                        } else {
-                            if (element.dataset.disable) {
-                                select(element.dataset.disable).disabled = false;
-                            }
-                        }
-                    });
-                });
-
             })();
         </script>
         <style type="text/css">
@@ -629,7 +671,7 @@
                 border-color: lightgray;
             }
 
-            label, button, a, label input, label .overlay, hgroup svg, .scan-icon, h3, .reset-icon, *[data-clipboard] {
+            label, button, a, label input, label .overlay, hgroup svg, .scan-icon, h3, .reset-icon, *[data-action], *[data-clipboard] {
                 cursor: pointer;
             }
 
@@ -710,12 +752,10 @@
                 fill: white;
             }
 
-            video {
+            canvas {
                 position: absolute;
-                top: 0px;
-                width: 100vw;
-                height: 100vh;
-                object-fit: cover;
+                scale: 2;
+                top: 200px;
             }
 
             h3 {
@@ -748,8 +788,10 @@
                 transition: color .2s;
             }
 
-            #page-loading {
-                justify-content: center;
+            #page-loading svg {
+                position: absolute;
+                top: 50%;
+                transform: translateY(-50%);
             }
 
             #page-recover > h3, #page-recover > div {
@@ -769,7 +811,13 @@
                 top: 1.4rem;
                 left: 1.4rem;
             }
-
+            
+            .add-icon {
+                position: absolute;
+                top: 5.0rem;
+                right: 1.0rem;
+            }
+            
             .reset-icon {
                 position: absolute;
                 top: 1.4rem;
@@ -788,7 +836,7 @@
 
             .checkmark {
                 position: absolute;
-                top: 50%;
+                top: 40%;
                 width: 270px;
                 height: 270px;
                 border-radius: 50%;
@@ -856,7 +904,7 @@
         <div id="wrapper">
             <div id="container">
                 <hgroup id="result">
-                    <span id="result-message"></span>
+                    <span></span>
                     <svg data-action="close" width="30px" height="30px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M10.0303 8.96965C9.73741 8.67676 9.26253 8.67676 8.96964 8.96965C8.67675 9.26255 8.67675 9.73742 8.96964 10.0303L10.9393 12L8.96966 13.9697C8.67677 14.2625 8.67677 14.7374 8.96966 15.0303C9.26255 15.3232 9.73743 15.3232 10.0303 15.0303L12 13.0607L13.9696 15.0303C14.2625 15.3232 14.7374 15.3232 15.0303 15.0303C15.3232 14.7374 15.3232 14.2625 15.0303 13.9696L13.0606 12L15.0303 10.0303C15.3232 9.73744 15.3232 9.26257 15.0303 8.96968C14.7374 8.67678 14.2625 8.67678 13.9696 8.96968L12 10.9393L10.0303 8.96965Z" fill="#1C274C"/>
                         <path fill-rule="evenodd" clip-rule="evenodd" d="M12 1.25C6.06294 1.25 1.25 6.06294 1.25 12C1.25 17.9371 6.06294 22.75 12 22.75C17.9371 22.75 22.75 17.9371 22.75 12C22.75 6.06294 17.9371 1.25 12 1.25ZM2.75 12C2.75 6.89137 6.89137 2.75 12 2.75C17.1086 2.75 21.25 6.89137 21.25 12C21.25 17.1086 17.1086 21.25 12 21.25C6.89137 21.25 2.75 17.1086 2.75 12Z" fill="#1C274C"/>
@@ -890,10 +938,13 @@
                             <path d="M7 21H5a2 2 0 01-2-2v-2"/>
                         </g>
                     </svg>
-                    <svg class="reset-icon" data-action="reset" xmlns="http://www.w3.org/2000/svg" fill="#000000" width="40px" height="40px" viewBox="0 0 40 40">
-                        <g transform="scale(.02)">
-                            <path d="M960 0v213.333c411.627 0 746.667 334.934 746.667 746.667S1371.627 1706.667 960 1706.667 213.333 1371.733 213.333 960c0-197.013 78.4-382.507 213.334-520.747v254.08H640V106.667H53.333V320h191.04C88.64 494.08 0 720.96 0 960c0 529.28 430.613 960 960 960s960-430.72 960-960S1489.387 0 960 0" fill-rule="evenodd"/>
-                        </g>
+                    <svg class="add-icon" data-action="createWallet" xmlns="http://www.w3.org/2000/svg" width="45" height="45" viewBox="0 0 24 24" fill="none">
+                        <circle cx="9" cy="7" r="4" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M2 21V17C2 15.8954 2.89543 15 4 15H14C15.1046 15 16 15.8954 16 17V21" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M19 8V14M16 11H22" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <svg class="reset-icon" data-action="reset" xmlns="http://www.w3.org/2000/svg" width="45" height="45" viewBox="0 0 24 24" fill="none">
+                        <path d="M21 3V8M21 8H16M21 8L18 5.29168C16.4077 3.86656 14.3051 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21C16.2832 21 19.8675 18.008 20.777 14" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                     <br />
                     <section><h1><span id="balance">0.00</span> ETH</h2><div id="balance-priced">0 USD</div></section>
@@ -923,8 +974,12 @@
                     </nav>
                 </article>
 
+                <article id="page-frame">
+                    <iframe src="https://nimiq.github.io/qr-scanner/demo/" title="Fuel Network Faucet"></iframe>
+                </article>
+
                 <article id="page-scanner">
-                    <video id="scanner" data-page="balance"></video>
+                    <canvas id="canvas" data-page="balance" height="480" width="640"></canvas>
                 </article>
 
                 <article id="page-loading">
