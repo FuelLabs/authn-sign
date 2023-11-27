@@ -2,12 +2,12 @@
 A simplified browser interface for WebAuthn focused on secp256r1 (P-256) signing.
 
 ## Features
-- `register`, `sign` (i.e. authenticate) and `recover` from WebAuthn.
+- `create`, `sign` (i.e. authenticate) and `recover` from WebAuthn.
 - Extremly light with minimal dependancies (just `@noble/curves`).
 - Supports compressed and non compressed public keys.
 - Supports EIP-2098 encoded and non-encoded signatures.
 - Designed for blockchain applications which typically use *prefixed hex data* encoding.
-- Address creation using `sha256(publicKeyCompact)`.
+- Suports an EIP-2098 sha based address creation using `sha256(publicKeyCompact)`.
 - Decoded `pre` and `post` challenge JSON `clientData` strings provided out of the box.
 
 *Warning: this library is in BETA, do not use it for production use.*
@@ -49,22 +49,15 @@ bun run test
 ```js
 import Account from "authn-sign";
 
-// Account 1.
-const username = "account_1";
-
-// Authn Account.
-const account = new Account(/* username, id, publicKey */);
-
 (async () => {
-    // Register account.
-    await account.register(username /*, options */);
+    // Create a new account.
+    const account = await Account.create("account_1");
 
-    // Log the signature.
+    // Log the new account information.
     console.log('Account', {
-        "publicKey": account.publicKey,
-        "publicKeyCompact": account.publicKeyCompact,
+        "publicKey": account.publicKey, // 65 bytes
+        "publicKeyCompact": account.publicKeyCompact, // 64 bytes
         "id": account.id,
-        "username": username,
     });
 
     // The challenge (which in blockchain would be the tx id).
@@ -73,7 +66,7 @@ const account = new Account(/* username, id, publicKey */);
     // Sign the challenge.
     const signature = await account.sign(challenge /*, options */);
 
-    // Log the signature payload.
+    // Log the signature payload (includes pre/post client data, signature, digest and other items).
     console.log('Signature', signature);
 })();
 ```
@@ -82,14 +75,11 @@ const account = new Account(/* username, id, publicKey */);
 ```js
 import Account from "authn-sign";
 
-// Authn Account.
-const account = new Account();
+// Dual signature account recovery.
+const account = await Account.recover();
 
-// Recover Account.
-const recover = account.sign('0xabcd', { recovery: true });
-
-// This will present the two potential publicKey and address options this account could be.
-console.log(recover.recovered);
+// Log the recovered account.
+console.log(account.id);
 ```
 
 ### Hosted Wallet Example:
@@ -102,7 +92,7 @@ console.log(recover.recovered);
 ```js
 // This would happen in the browser.
 const account = new Account();
-await account.register('username_1');
+await account.create('username_1');
 const transaction_hash = '0xb4f62ae3e337421868782a88ff7d81a8bf44ef6722dfcd0c70d08a0adc25663d';
 const signature = await account.sign(account, transaction_hash);
 
@@ -169,11 +159,11 @@ export default class Account {
      */
     constructor(username: string, id: string, pulicKey: string, options?: any);
     /**
-     *  The ```register``` method for signature.
+     *  The ```create``` method for signature.
      *
      *  This is the primary account register function for WebAuthn.
      */
-    register(username: string, options?: any): Promise<any>;
+    static create(username: string, options?: any): Promise<Account>;
     /**
      *  The ```sign``` authorization signing method.
      *
@@ -181,11 +171,11 @@ export default class Account {
      */
     sign(challenge?: string, options?: any): Promise<any>;
     /**
-     *  The ```verify``` a message and signature aligns with this publicKey.
+     *  ```recover``` an account from two WebAuthn signatures (dual signature recovery).
      *
-     *  This will enable verification based upon a message and unencoded signature.
+     *  This allows a user to recover their WebAuthn account (we need this because WebAuthn doesn't return a public key during the signing process).
      */
-    verify(message?: string, signature?: string): boolean;
+     static async recover(username = 'username_1', options:any = {}): Promise<Account>;
 }
 export declare function recover(signature?: string, message?: string, recoveryBit?: number): string;
 export declare function normalizeSignature(signature?: string, digest?: string, publicKeyCompact?: string): string;

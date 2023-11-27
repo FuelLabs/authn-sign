@@ -236,21 +236,30 @@ export async function computeAddress(publicKeyCompact = '0x') {
     return bufferToHex(await sha256(hexToBuffer(publicKeyCompact)));
 }
 
+export function buildOptions() {
+    return {
+        window: typeof window !== "undefined" ? window : windowObject,
+        navigator: typeof navigator !== "undefined" ? navigator : navigatorObject,
+    };
+}
+
 // Primary Account object.
 export default class Account {
     #id: string = '';
     #username: string = '';
     #publicKey: string = '';
-    #options: any = {
-        window: typeof window !== "undefined" ? window : windowObject,
-        navigator: typeof navigator !== "undefined" ? navigator : navigatorObject,
-    };
+    #registration: any = {};
+    #options: any = buildOptions();
 
-    // Getters.
+    // Getters & setters.
     get id(): string { return this.#id; }
     get username(): string { return this.#username; }
     get publicKey(): string { return this.#publicKey; }
+    get registration(): string { return this.#registration; }
     get publicKeyCompact(): string { return '0x' + this.#publicKey.slice(4); }
+    set registration(value:any) {
+        this.#registration = value;
+    }
 
     // Return the address based upon sha256.
     async address(): Promise<string> {
@@ -262,7 +271,7 @@ export default class Account {
      *
      *  This allows you to recover an account from a DB to use for authorization.
      */
-    constructor(username:string, id:string, pulicKey: string, options?:any) {
+    constructor(username:string = '0x', id:string = '0x', pulicKey: string = '0x', options?:any) {
         this.#id = id;
         this.#username = username;
         this.#publicKey = pulicKey;
@@ -270,23 +279,22 @@ export default class Account {
     }
 
     /**
-     *  The ```register``` method for signature.
+     *  The ```create``` method for the account.
      *
      *  This is the primary account register function for WebAuthn.
      */
-    async register(username:string, options?:any): Promise<any> {
-        // Set the username.
-        this.#username = username;
+    static async create(username:string, options?:any): Promise<Account> {
+        const optionsDefaults:any = buildOptions();
 
         // Setup default options.
-        options = options || {};
+        options = Object.assign(buildOptions(), options || {});
 
         // PublicKeyCredentialCreationOptions.
         const publicKeyCredentialCreationOptions = options.creationOptions || {
             challenge: toBuffer(options.challenge || defaultRegistrationChallenge),
             rp: {
-                id: this.#options.window.location.hostname,
-                name: this.#options.window.location.hostname,
+                id: options.window.location.hostname,
+                name: options.window.location.hostname,
             },
             user: {
                 id: options.userHandle
@@ -317,34 +325,37 @@ export default class Account {
         if(options.debug) console.debug(publicKeyCredentialCreationOptions);
 
         // Credential creation.
-        const credential = await this.#options.navigator.credentials.create({
+        const credential = await options.navigator.credentials.create({
             publicKey: publicKeyCredentialCreationOptions,
         }) as any;
 
         // Gather the response.
         const response = credential.response as any;
 
+        
         // Another debugging check.
         if(options.debug) console.debug(response);
 
-        // Set the ID from base64.
-        this.#id = base64ToHex(credential.id);
-
-        // Set the public key.
-        this.#publicKey = await cryptoKeyToHex(
-            await parseCryptoKey(
-                toBase64url(response.getPublicKey())
-            )
+        // New account.
+        const account = new Account(
+            username,
+            base64ToHex(credential.id),
+            await cryptoKeyToHex(
+                await parseCryptoKey(
+                    toBase64url(response.getPublicKey())
+                ),
+            ),
         );
 
-        // Return the registration object.
-        return {
-            id: this.#id,
-            publicKey: this.#publicKey,
+        // Add key registration details.
+        account.registration = {
             authenticatorData: response.authenticatorData,
             clientData: response.clientDataJSON,
             publicKeyCredentialCreationOptions,
         };
+
+        // Return the new account.
+        return account;
     }
 
     /**
@@ -446,17 +457,51 @@ export default class Account {
     }
 
     /**
-     *  The ```verify``` a message and signature aligns with this publicKey.
+     *  ```recover``` an account from two WebAuthn signatures (dual signature recovery).
      *
-     *  This will enable verification based upon a message and unencoded signature.
+     *  This allows a user to recover their WebAuthn account (we need this because WebAuthn doesn't return a public key during the signing process).
      */
-    verify(message:string = "0x", signature:string = "0x"): boolean {
-        return secp256r1.verify(
-            signature.slice(2),
-            message.slice(2),
-            this.#publicKey.slice(2),
-            { lowS: false, prehash: true },
-        ) === true;
+     static async recover(username = 'username_1', options:any = {}): Promise<Account> {
+        // Attempt a recovery signature.
+        const recoverySignatrue = await (new Account()).sign('0x86', { recover: true });
+
+        // Build two potential accounts with different recovery bits.
+        const account0 = new Account(
+            username,
+            recoverySignatrue.id,
+            '0x04' + recoverySignatrue.recovered.publicKey0.slice(2),
+        );
+        const account1 = new Account(
+            username,
+            recoverySignatrue.id,
+            '0x04' + recoverySignatrue.recovered.publicKey1.slice(2),
+        );
+
+        // If there is a precheck method.
+        const precheck = options.precheck as Function;
+
+        // You can pre-check the accounts before going to a second signature.
+        // i.e. you can check for things like account history (an indicator its the right account).
+        if (precheck) {
+            if (await precheck(account0)) return account0;
+            if (await precheck(account1)) return account1;
+        }
+
+        // Attempt second signature.
+        try {
+            // If sign is successful (no invalid bit), then we know this account is the correct one.
+            await account0.sign('0x86');
+
+            // We return Account0.
+            return account0;
+        } catch (account0Error) {
+            if ((account0Error as any).message.includes('invalid bit')) {
+                // If there was an error signing with the above account, we then assume the second account.
+                return account1;
+            } else {
+                throw new Error('A recovery error has occured: ' + (account0Error as any).message);
+            }
+        }
     }
 }
 
@@ -483,8 +528,14 @@ export function recover(signature = '0x', message = '0x', recoveryBit = 0) {
         y = '0' + y;
     }
 
+    // Pad x if uneven.
+    let x = recovered.x.toString(16);
+    if (x.length == 63) {
+        x = '0' + x;
+    }
+
     // Return the public key.
-    return '0x' + recovered.x.toString(16) + y;
+    return '0x' + x + y;
 }
 
 // Throw invalid.

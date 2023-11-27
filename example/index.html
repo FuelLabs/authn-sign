@@ -38,7 +38,7 @@
 
             (async () => {
                 // Application pages.
-                let pages = ['create', 'balance', 'faucet', 'frame', 'send', 'scanner', 'loading', 'receive', 'success'];
+                let pages = ['create', 'balance', 'faucet', 'send', 'scanner', 'loading', 'receive', 'success'];
 
                 // Is localhost.
                 const isLocalhost = window.location.hostname.includes('192');
@@ -104,8 +104,8 @@
 
                 // Create an account.
                 async function createAccount() {
-                    // Register an account.
-                    await state.account.register(username);
+                    // Create an account.
+                    state.account = await Account.create(username);
 
                     // Set the account in the UI.
                     await updateAccount();
@@ -333,33 +333,14 @@
                         var canvasElement = document.getElementById("canvas");
                         var canvas = canvasElement.getContext("2d");
 
-                        navigator.permissions.query({ name: "camera" }).then((result) => {
-                            if (result.state === "granted") {
-                                console.log(result);
-                            } else if (result.state === "prompt") {
-                                console.log(result);
-                            }
-                        });
-
                         navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: "environment" } })
                         .then(function(stream) {
                             video.srcObject = stream;
                             video.setAttribute("playsinline", true); // required to tell iOS safari we don't want fullscreen
                             video.setAttribute("crossorigin", "true");
                             video.play();
-
-                            video.onerror = function (error) {
-                                // alert(error.message);
-                            };
-                            video.onabort = function (error) {
-                                // alert(error.message);
-                            };
-
                             state.stream = stream;
                             state.tick = setInterval(tick, 5);
-                        })
-                        .catch(error => {
-                            // alert(error.message);
                         });
 
                         function tick() {
@@ -824,16 +805,6 @@
                 right: 1.4rem;
             }
 
-            .checkmark__circle {
-                stroke-dasharray: 166;
-                stroke-dashoffset: 166;
-                stroke-width: 2;
-                stroke-miterlimit: 10;
-                stroke: var(--blue);
-                fill: none;
-                animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
-            }
-
             .checkmark {
                 position: absolute;
                 top: 40%;
@@ -849,7 +820,17 @@
                 animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both;
             }
 
-            .checkmark__check {
+            .checkmark circle {
+                stroke-dasharray: 166;
+                stroke-dashoffset: 166;
+                stroke-width: 2;
+                stroke-miterlimit: 10;
+                stroke: var(--blue);
+                fill: none;
+                animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+            }
+
+            .checkmark path {
                 transform-origin: 50% 50%;
                 stroke-dasharray: 48;
                 stroke-dashoffset: 48;
@@ -901,141 +882,135 @@
             }
         </style>
 
-        <div id="wrapper">
-            <div id="container">
-                <hgroup id="result">
-                    <span></span>
-                    <svg data-action="close" width="30px" height="30px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M10.0303 8.96965C9.73741 8.67676 9.26253 8.67676 8.96964 8.96965C8.67675 9.26255 8.67675 9.73742 8.96964 10.0303L10.9393 12L8.96966 13.9697C8.67677 14.2625 8.67677 14.7374 8.96966 15.0303C9.26255 15.3232 9.73743 15.3232 10.0303 15.0303L12 13.0607L13.9696 15.0303C14.2625 15.3232 14.7374 15.3232 15.0303 15.0303C15.3232 14.7374 15.3232 14.2625 15.0303 13.9696L13.0606 12L15.0303 10.0303C15.3232 9.73744 15.3232 9.26257 15.0303 8.96968C14.7374 8.67678 14.2625 8.67678 13.9696 8.96968L12 10.9393L10.0303 8.96965Z" fill="#1C274C"/>
-                        <path fill-rule="evenodd" clip-rule="evenodd" d="M12 1.25C6.06294 1.25 1.25 6.06294 1.25 12C1.25 17.9371 6.06294 22.75 12 22.75C17.9371 22.75 22.75 17.9371 22.75 12C22.75 6.06294 17.9371 1.25 12 1.25ZM2.75 12C2.75 6.89137 6.89137 2.75 12 2.75C17.1086 2.75 21.25 6.89137 21.25 12C21.25 17.1086 17.1086 21.25 12 21.25C6.89137 21.25 2.75 17.1086 2.75 12Z" fill="#1C274C"/>
-                    </svg>
-                </hgroup>
+        <div id="container">
+            <hgroup id="result">
+                <span></span>
+                <svg data-action="close" width="30px" height="30px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M10.0303 8.96965C9.73741 8.67676 9.26253 8.67676 8.96964 8.96965C8.67675 9.26255 8.67675 9.73742 8.96964 10.0303L10.9393 12L8.96966 13.9697C8.67677 14.2625 8.67677 14.7374 8.96966 15.0303C9.26255 15.3232 9.73743 15.3232 10.0303 15.0303L12 13.0607L13.9696 15.0303C14.2625 15.3232 14.7374 15.3232 15.0303 15.0303C15.3232 14.7374 15.3232 14.2625 15.0303 13.9696L13.0606 12L15.0303 10.0303C15.3232 9.73744 15.3232 9.26257 15.0303 8.96968C14.7374 8.67678 14.2625 8.67678 13.9696 8.96968L12 10.9393L10.0303 8.96965Z" fill="#1C274C"/>
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M12 1.25C6.06294 1.25 1.25 6.06294 1.25 12C1.25 17.9371 6.06294 22.75 12 22.75C17.9371 22.75 22.75 17.9371 22.75 12C22.75 6.06294 17.9371 1.25 12 1.25ZM2.75 12C2.75 6.89137 6.89137 2.75 12 2.75C17.1086 2.75 21.25 6.89137 21.25 12C21.25 17.1086 17.1086 21.25 12 21.25C6.89137 21.25 2.75 17.1086 2.75 12Z" fill="#1C274C"/>
+                </svg>
+            </hgroup>
 
-                <article id="page-create">
-                    <h1>AuthnWallet</h1>
+            <article id="page-create">
+                <h1>AuthnWallet</h1>
 
-                    <ul>
-                        <li>No seed phrases, no installation, no downloads, no problems!</li>
-                        <li>Your keys are backed up on iCloud and KeyChain</li>
-                        <li>Sign transactions using FaceID or TouchID</li>
-                    </ul>
+                <ul>
+                    <li>No seed phrases, no installation, no downloads, no problems!</li>
+                    <li>Your keys are backed up on iCloud and KeyChain</li>
+                    <li>Sign transactions using FaceID or TouchID</li>
+                </ul>
 
-                    <p>Ensure Settings > Apple ID > iCloud -> Passwords and Keychain -> Sync this iPhone is on.</p>
+                <p>Ensure Settings > Apple ID > iCloud -> Passwords and Keychain -> Sync this iPhone is on.</p>
 
-                    <p><a data-action="recoverAccounts">Recover Wallet</a></p>
+                <p><a data-action="recoverAccounts">Recover Wallet</a></p>
 
-                    <nav>
-                        <button data-action="createWallet">Create Wallet</button>
-                    </nav>
-                </article>
+                <nav>
+                    <button data-action="createWallet">Create Wallet</button>
+                </nav>
+            </article>
 
-                <article id="page-balance">
-                    <svg class="scan-icon" data-page="scanner" xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <g transform="scale(1.6)">
-                            <path d="M3 7V5a2 2 0 012-2h2"/>
-                            <path d="M17 3h2a2 2 0 012 2v2"/>
-                            <path d="M21 17v2a2 2 0 01-2 2h-2"/>
-                            <path d="M7 21H5a2 2 0 01-2-2v-2"/>
-                        </g>
-                    </svg>
-                    <svg class="add-icon" data-action="createWallet" xmlns="http://www.w3.org/2000/svg" width="45" height="45" viewBox="0 0 24 24" fill="none">
-                        <circle cx="9" cy="7" r="4" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path d="M2 21V17C2 15.8954 2.89543 15 4 15H14C15.1046 15 16 15.8954 16 17V21" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path d="M19 8V14M16 11H22" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    <svg class="reset-icon" data-action="reset" xmlns="http://www.w3.org/2000/svg" width="45" height="45" viewBox="0 0 24 24" fill="none">
-                        <path d="M21 3V8M21 8H16M21 8L18 5.29168C16.4077 3.86656 14.3051 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21C16.2832 21 19.8675 18.008 20.777 14" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    <br />
-                    <section><h1><span id="balance">0.00</span> ETH</h2><div id="balance-priced">0 USD</div></section>
-                    <a id="faucet" data-page="faucet">Faucet Ether</a>
-                    <nav>
-                        <button data-page="receive">Receive</button>
-                        <button data-page="send">Send</button>
-                    </nav>
-                </article>
+            <article id="page-balance">
+                <svg class="scan-icon" data-page="scanner" xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <g transform="scale(1.6)">
+                        <path d="M3 7V5a2 2 0 012-2h2"/>
+                        <path d="M17 3h2a2 2 0 012 2v2"/>
+                        <path d="M21 17v2a2 2 0 01-2 2h-2"/>
+                        <path d="M7 21H5a2 2 0 01-2-2v-2"/>
+                    </g>
+                </svg>
+                <svg class="add-icon" data-action="createWallet" xmlns="http://www.w3.org/2000/svg" width="45" height="45" viewBox="0 0 24 24" fill="none">
+                    <circle cx="9" cy="7" r="4" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M2 21V17C2 15.8954 2.89543 15 4 15H14C15.1046 15 16 15.8954 16 17V21" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M19 8V14M16 11H22" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <svg class="reset-icon" data-action="reset" xmlns="http://www.w3.org/2000/svg" width="45" height="45" viewBox="0 0 24 24" fill="none">
+                    <path d="M21 3V8M21 8H16M21 8L18 5.29168C16.4077 3.86656 14.3051 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21C16.2832 21 19.8675 18.008 20.777 14" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <br />
+                <section><h1><span id="balance">0.00</span> ETH</h2><div id="balance-priced">0 USD</div></section>
+                <a id="faucet" data-page="faucet">Faucet Ether</a>
+                <nav>
+                    <button data-page="receive">Receive</button>
+                    <button data-page="send">Send</button>
+                </nav>
+            </article>
 
-                <article id="page-receive">
-                    <br />
-                    <div id="qrcode"></div>
-                    <small id="address" data-clipboard="0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855">
-                        0xe3b0c44298fc1c149afbf4c89...427ae41e4649b934ca495991b7852b855
-                    </small>
-                    <nav>
-                        <button data-page="balance">Back</button>
-                    </nav>
-                </article>
+            <article id="page-receive">
+                <br />
+                <div id="qrcode"></div>
+                <small id="address" data-clipboard="0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855">
+                    0xe3b0c44298fc1c149afbf4c89...427ae41e4649b934ca495991b7852b855
+                </small>
+                <nav>
+                    <button data-page="balance">Back</button>
+                </nav>
+            </article>
 
-                <article id="page-faucet">
-                    <br />
-                    <iframe src="https://faucet-beta-4.fuel.network/?address=" title="Fuel Network Faucet"></iframe>
-                    <nav>
-                        <button data-page="balance">Back</button>
-                    </nav>
-                </article>
+            <article id="page-faucet">
+                <br />
+                <iframe src="https://faucet-beta-4.fuel.network/?address=" title="Fuel Network Faucet"></iframe>
+                <nav>
+                    <button data-page="balance">Back</button>
+                </nav>
+            </article>
 
-                <article id="page-frame">
-                    <iframe src="https://nimiq.github.io/qr-scanner/demo/" title="Fuel Network Faucet"></iframe>
-                </article>
+            <article id="page-scanner">
+                <canvas id="canvas" data-page="balance" height="480" width="640"></canvas>
+            </article>
 
-                <article id="page-scanner">
-                    <canvas id="canvas" data-page="balance" height="480" width="640"></canvas>
-                </article>
+            <article id="page-loading">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><circle fill="none" stroke-opacity="1" stroke="#6B70F5" stroke-width=".5" cx="100" cy="100" r="0"><animate attributeName="r" calcMode="spline" dur="2" values="1;80" keyTimes="0;1" keySplines="0 .2 .5 1" repeatCount="indefinite"></animate><animate attributeName="stroke-width" calcMode="spline" dur="2" values="0;25" keyTimes="0;1" keySplines="0 .2 .5 1" repeatCount="indefinite"></animate><animate attributeName="stroke-opacity" calcMode="spline" dur="2" values="1;0" keyTimes="0;1" keySplines="0 .2 .5 1" repeatCount="indefinite"></animate></circle></svg>  
+            </article>
 
-                <article id="page-loading">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><circle fill="none" stroke-opacity="1" stroke="#6B70F5" stroke-width=".5" cx="100" cy="100" r="0"><animate attributeName="r" calcMode="spline" dur="2" values="1;80" keyTimes="0;1" keySplines="0 .2 .5 1" repeatCount="indefinite"></animate><animate attributeName="stroke-width" calcMode="spline" dur="2" values="0;25" keyTimes="0;1" keySplines="0 .2 .5 1" repeatCount="indefinite"></animate><animate attributeName="stroke-opacity" calcMode="spline" dur="2" values="1;0" keyTimes="0;1" keySplines="0 .2 .5 1" repeatCount="indefinite"></animate></circle></svg>  
-                </article>
+            <article id="page-send">
+                <br />
+                <section>
+                    <input id="send-recipient" type="text" disabled placeholder="recipient address" />
+                    <label class="checkbox">
+                        <input id="send-to-self" type="checkbox" data-disable="#send-recipient" checked />
+                        <span class="overlay">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="icon">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        </span>
+                        <div>
+                            Send funds to self.
+                        </div>
+                    </label>
+                </section>
+                <section>
+                    <input id="send-value" type="number" pattern="[0-9.]*" placeholder="amount" />
+                    <h4><span id="balance-2">0</span> ETH <a data-action="max">MAX</a></h4>
+                </section>
+                <br />
+                <nav>
+                    <button data-page="balance">Back</button>
+                    <button data-action="send">Confirm</button>
+                </nav>
+            </article>
 
-                <article id="page-send">
-                    <br />
-                    <section>
-                        <input id="send-recipient" type="text" disabled placeholder="recipient address" />
-                        <label class="checkbox">
-                            <input id="send-to-self" type="checkbox" data-disable="#send-recipient" checked />
-                            <span class="overlay">
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="24"
-                                height="24"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                class="icon">
-                                <polyline points="20 6 9 17 4 12"/>
-                            </svg>
-                            </span>
-                            <div>
-                                Send funds to self.
-                            </div>
-                        </label>
-                    </section>
-                    <section>
-                        <input id="send-value" type="number" pattern="[0-9.]*" placeholder="amount" />
-                        <h4><span id="balance-2">0</span> ETH <a data-action="max">MAX</a></h4>
-                    </section>
-                    <br />
-                    <nav>
-                        <button data-page="balance">Back</button>
-                        <button data-action="send">Confirm</button>
-                    </nav>
-                </article>
-
-                <article id="page-success">
-                    <br />
-                    <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
-                        <circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/>
-                        <path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
-                    </svg>
-                    <a id="success-link" href="" target="_blank">View Transaction on Fuel Explorer</a>
-                    <br />
-                    <nav>
-                        <button data-page="balance">Next</button>
-                    </nav>
-                </article>
-            </div>
+            <article id="page-success">
+                <br />
+                <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                    <circle cx="26" cy="26" r="25" fill="none"/>
+                    <path fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+                </svg>
+                <a id="success-link" href="" target="_blank">View Transaction on Fuel Explorer</a>
+                <br />
+                <nav>
+                    <button data-page="balance">Next</button>
+                </nav>
+            </article>
         </div>
     </body>
 </html>

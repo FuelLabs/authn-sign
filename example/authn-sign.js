@@ -1944,13 +1944,23 @@ async function simulate_onchain_verification(publicKey = "0x", publicKeyCompact 
 async function computeAddress(publicKeyCompact = "0x") {
   return bufferToHex(await sha2563(hexToBuffer(publicKeyCompact)));
 }
+function buildOptions() {
+  return {
+    window: typeof window !== "undefined" ? window : windowObject,
+    navigator: typeof navigator !== "undefined" ? navigator : navigatorObject
+  };
+}
 function recover(signature = "0x", message = "0x", recoveryBit = 0) {
   const recovered = secp256r1.Signature.fromCompact(bufferToHex(secp256r1.Signature.fromCompact(signature.slice(2)).normalizeS().toCompactRawBytes()).slice(2)).addRecoveryBit(recoveryBit).recoverPublicKey(message.slice(2));
   let y = recovered.y.toString(16);
   if (y.length == 63) {
     y = "0" + y;
   }
-  return "0x" + recovered.x.toString(16) + y;
+  let x = recovered.x.toString(16);
+  if (x.length == 63) {
+    x = "0" + x;
+  }
+  return "0x" + x + y;
 }
 function normalizeSignature(signature = "0x", digest = "0x", publicKeyCompact = "0x") {
   let check0 = recover(signature, digest, 0) == publicKeyCompact;
@@ -1980,10 +1990,8 @@ class Account {
   #id = "";
   #username = "";
   #publicKey = "";
-  #options = {
-    window: typeof window !== "undefined" ? window : windowObject,
-    navigator: typeof navigator !== "undefined" ? navigator : navigatorObject
-  };
+  #registration = {};
+  #options = buildOptions();
   get id() {
     return this.#id;
   }
@@ -1993,26 +2001,32 @@ class Account {
   get publicKey() {
     return this.#publicKey;
   }
+  get registration() {
+    return this.#registration;
+  }
   get publicKeyCompact() {
     return "0x" + this.#publicKey.slice(4);
+  }
+  set registration(value) {
+    this.#registration = value;
   }
   async address() {
     return computeAddress(this.publicKeyCompact);
   }
-  constructor(username, id, pulicKey, options) {
+  constructor(username = "0x", id = "0x", pulicKey = "0x", options) {
     this.#id = id;
     this.#username = username;
     this.#publicKey = pulicKey;
     this.#options = options || this.#options;
   }
-  async register(username, options) {
-    this.#username = username;
-    options = options || {};
+  static async create(username, options) {
+    const optionsDefaults = buildOptions();
+    options = Object.assign(buildOptions(), options || {});
     const publicKeyCredentialCreationOptions = options.creationOptions || {
       challenge: toBuffer(options.challenge || defaultRegistrationChallenge),
       rp: {
-        id: this.#options.window.location.hostname,
-        name: this.#options.window.location.hostname
+        id: options.window.location.hostname,
+        name: options.window.location.hostname
       },
       user: {
         id: options.userHandle ? toBuffer(options.userHandle) : await sha2563(new TextEncoder().encode("passwordless.id-user:" + username)),
@@ -2038,21 +2052,19 @@ class Account {
     };
     if (options.debug)
       console.debug(publicKeyCredentialCreationOptions);
-    const credential = await this.#options.navigator.credentials.create({
+    const credential = await options.navigator.credentials.create({
       publicKey: publicKeyCredentialCreationOptions
     });
     const response = credential.response;
     if (options.debug)
       console.debug(response);
-    this.#id = base64ToHex(credential.id);
-    this.#publicKey = await cryptoKeyToHex(await parseCryptoKey(toBase64url(response.getPublicKey())));
-    return {
-      id: this.#id,
-      publicKey: this.#publicKey,
+    const account = new Account(username, base64ToHex(credential.id), await cryptoKeyToHex(await parseCryptoKey(toBase64url(response.getPublicKey()))));
+    account.registration = {
       authenticatorData: response.authenticatorData,
       clientData: response.clientDataJSON,
       publicKeyCredentialCreationOptions
     };
+    return account;
   }
   async sign(challenge = "0x", options) {
     options = options || {};
@@ -2106,8 +2118,27 @@ class Account {
       } : null
     };
   }
-  verify(message = "0x", signature = "0x") {
-    return secp256r1.verify(signature.slice(2), message.slice(2), this.#publicKey.slice(2), { lowS: false, prehash: true }) === true;
+  static async recover(username = "username_1", options = {}) {
+    const recoverySignatrue = await new Account().sign("0x86", { recover: true });
+    const account0 = new Account(username, recoverySignatrue.id, "0x04" + recoverySignatrue.recovered.publicKey0.slice(2));
+    const account1 = new Account(username, recoverySignatrue.id, "0x04" + recoverySignatrue.recovered.publicKey1.slice(2));
+    const precheck = options.precheck;
+    if (precheck) {
+      if (await precheck(account0))
+        return account0;
+      if (await precheck(account1))
+        return account1;
+    }
+    try {
+      await account0.sign("0x86");
+      return account0;
+    } catch (account0Error) {
+      if (account0Error.message.includes("invalid bit")) {
+        return account1;
+      } else {
+        throw new Error("A recovery error has occured: " + account0Error.message);
+      }
+    }
   }
 }
 var throwInvalid = () => {
@@ -2139,8 +2170,9 @@ export {
   concatHexStrings,
   computeAddress,
   clientDataToJSON,
+  buildOptions,
   bufferToHex,
   base64ToHex
 };
 
-//# debugId=4B2D19991793599864756e2164756e21
+//# debugId=29E73867F505771B64756e2164756e21

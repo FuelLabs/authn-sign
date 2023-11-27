@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
-import { bufferToHex, normalizeSignature, encode_signature, decode_signature } from "./index";
-import { secp256r1 } from '@noble/curves/p256';
+import { normalizeSignature, encode_signature, decode_signature } from "./index";
 
 // Fake WebAuthn client.
 const client = {
